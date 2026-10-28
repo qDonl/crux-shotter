@@ -41,8 +41,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func setUpButton() {
         guard let button = statusItem.button else { return }
-        let image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "CruxShotter")
+        let image = NSImage(named: "MenuBarIcon")
         image?.isTemplate = true
+        image?.accessibilityDescription = "CruxShotter"
         button.image = image
         button.toolTip = "CruxShotter"
 

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+<rect width="1200" height="1200" fill="#FFFFFF"/>
+<style>text{font-family:-apple-system,"PingFang SC",sans-serif}.h{font-size:30px;font-weight:600;fill:#222}.l{font-size:26px;fill:#222;font-weight:600}.s{font-size:20px;fill:#666}</style>
+<defs>
+<linearGradient id="gO" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9F43"/><stop offset="1" stop-color="#F0592A"/></linearGradient>
+<linearGradient id="gK" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E3138"/><stop offset="1" stop-color="#0E0F12"/></linearGradient>
+<linearGradient id="gS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FD3FF"/><stop offset="1" stop-color="#2F7CF6"/></linearGradient>
+<linearGradient id="gR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF6B81"/><stop offset="1" stop-color="#E0244B"/></linearGradient>
+<linearGradient id="gT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34E0B5"/><stop offset="1" stop-color="#0E9F87"/></linearGradient>
+<linearGradient id="gW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6E8EC"/></linearGradient>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.28"/></filter>
+<g id="E1"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gO)" filter="url(#sh)"/><g fill="none" stroke="#fff" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"><path d="M380 260v384h384"/><path d="M260 380h384v384"/></g></g>
+<g id="E2"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gK)" filter="url(#sh)"/><circle cx="512" cy="512" r="262" fill="#3A3D44"/><path d="M531.8 419.1L479.8 284.3A230 230 0 0 1 693.1 370.2L602.4 482.6Z" fill="#FFFFFF"/><path d="M602.4 482.6L693.1 370.2A230 230 0 0 1 725.3 598.0L582.6 575.6Z" fill="#B9BCC4"/><path d="M582.6 575.6L725.3 598.0A230 230 0 0 1 544.2 739.7L492.2 604.9Z" fill="#FFFFFF"/><path d="M492.2 604.9L544.2 739.7A230 230 0 0 1 330.9 653.8L421.6 541.4Z" fill="#B9BCC4"/><path d="M421.6 541.4L330.9 653.8A230 230 0 0 1 298.7 426.0L441.4 448.4Z" fill="#FFFFFF"/><path d="M441.4 448.4L298.7 426.0A230 230 0 0 1 479.8 284.3L531.8 419.1Z" fill="#B9BCC4"/><polygon points="531.8,419.1 602.4,482.6 582.6,575.6 492.2,604.9 421.6,541.4 441.4,448.4" fill="#0E0F12"/></g>
+<g id="E3"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gS)" filter="url(#sh)"/><rect x="250" y="290" width="524" height="380" rx="36" fill="#fff"/><rect x="420" y="700" width="184" height="40" rx="12" fill="#fff" fill-opacity="0.85"/><rect x="330" y="360" width="250" height="200" rx="10" fill="#2F7CF6" fill-opacity="0.18" stroke="#2F7CF6" stroke-width="18" stroke-dasharray="40 26"/></g>
+<g id="E4"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gR)" filter="url(#sh)"/><rect x="250" y="330" width="440" height="360" rx="30" fill="#fff" transform="rotate(-6 470 510)"/><g transform="rotate(30 640 380)"><circle cx="640" cy="330" r="86" fill="#1C1C1E"/><rect x="618" y="400" width="44" height="160" rx="16" fill="#1C1C1E"/></g></g>
+<g id="E5"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gW)" filter="url(#sh)"/><circle cx="512" cy="512" r="230" fill="none" stroke="#1C1C1E" stroke-width="40"/><g stroke="#1C1C1E" stroke-width="40" stroke-linecap="round"><path d="M512 230v160"/><path d="M512 634v160"/><path d="M230 512h160"/><path d="M634 512h160"/></g><rect x="482" y="482" width="60" height="60" rx="8" fill="#FF3B30"/></g>
+<g id="E6"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gT)" filter="url(#sh)"/><path d="M700 300H330a30 30 0 0 0-30 30v364a30 30 0 0 0 30 30h370" fill="none" stroke="#fff" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/><circle cx="640" cy="512" r="56" fill="#fff"/></g>
+<g id="row">
+<svg x="60" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E1"/></svg>
+<svg x="240" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E2"/></svg>
+<svg x="420" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E3"/></svg>
+<svg x="600" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E4"/></svg>
+<svg x="780" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E5"/></svg>
+<svg x="960" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#E6"/></svg>
+</g>
+</defs>
+<text x="40" y="56" class="h">Dock 应用图标候选（第二批，不同风格）</text>
+<svg x="60" y="80" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E1"/></svg>
+<svg x="475" y="80" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E2"/></svg>
+<svg x="890" y="80" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E3"/></svg>
+<text x="185" y="360" text-anchor="middle" class="l">E1 裁剪工具</text><text x="185" y="390" text-anchor="middle" class="s">经典“裁剪”符号</text>
+<text x="600" y="360" text-anchor="middle" class="l">E2 相机快门</text><text x="600" y="390" text-anchor="middle" class="s">“拍下屏幕”</text>
+<text x="1015" y="360" text-anchor="middle" class="l">E3 屏幕框选</text><text x="1015" y="390" text-anchor="middle" class="s">屏幕上框出一块</text>
+<svg x="60" y="420" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E4"/></svg>
+<svg x="475" y="420" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E5"/></svg>
+<svg x="890" y="420" width="250" height="250" viewBox="0 0 1024 1024"><use href="#E6"/></svg>
+<text x="185" y="700" text-anchor="middle" class="l">E4 图钉贴图</text><text x="185" y="730" text-anchor="middle" class="s">突出贴图功能</text>
+<text x="600" y="700" text-anchor="middle" class="l">E5 精准准星</text><text x="600" y="730" text-anchor="middle" class="s">像素级定位</text>
+<text x="1015" y="700" text-anchor="middle" class="l">E6 字母 C</text><text x="1015" y="730" text-anchor="middle" class="s">Crux 首字母</text>
+<text x="40" y="800" class="h">放在 Dock 里的效果（浅色 / 深色）</text>
+<rect x="40" y="830" width="1120" height="130" rx="28" fill="#E9EAEE" stroke="#D0D2D8"/>
+<rect x="40" y="980" width="1120" height="130" rx="28" fill="#2B2C30" stroke="#3E4046"/>
+<use href="#row" y="832"/>
+<use href="#row" y="982"/>
+</svg>

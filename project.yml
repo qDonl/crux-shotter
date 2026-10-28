@@ -32,6 +32,7 @@ targets:
         INFOPLIST_FILE: App/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.cruxshot.CruxShot
         PRODUCT_NAME: CruxShotter
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_ENTITLEMENTS: App/CruxShot.entitlements
         MARKETING_VERSION: "0.0.1"

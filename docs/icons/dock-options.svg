@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="1200" viewBox="0 0 1200 1200">
+<rect width="1200" height="1200" fill="#FFFFFF"/>
+<style>text{font-family:-apple-system,"PingFang SC",sans-serif}.h{font-size:30px;font-weight:600;fill:#222}.l{font-size:26px;fill:#222;font-weight:600}.s{font-size:20px;fill:#666}</style>
+<defs>
+<linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A9BFF"/><stop offset="1" stop-color="#1F5FD6"/></linearGradient>
+<linearGradient id="gWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4E6EA"/></linearGradient>
+<linearGradient id="gDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3D44"/><stop offset="1" stop-color="#15161A"/></linearGradient>
+<linearGradient id="gIndigo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E6BFF"/><stop offset="1" stop-color="#3B2FC9"/></linearGradient>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.28"/></filter>
+<path id="br" d="M300 400V300h100M624 300h100v100M724 624v100H624M400 724H300V624" fill="none" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+<g id="D1"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gBlue)" filter="url(#sh)"/><use href="#br" stroke="#FFFFFF"/></g>
+<g id="D2"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gWhite)" filter="url(#sh)"/><use href="#br" stroke="#1C1C1E"/><circle cx="512" cy="512" r="46" fill="#0A84FF"/></g>
+<g id="D3"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gDark)" filter="url(#sh)"/><rect x="332" y="332" width="360" height="360" rx="18" fill="#4DA3FF" fill-opacity="0.55"/><use href="#br" stroke="#FFFFFF"/></g>
+<g id="D4"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gIndigo)" filter="url(#sh)"/><path d="M300 400V300h100M624 300h100v100M400 724H300V624" fill="none" stroke="#fff" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/><path d="M590 580l200 80-86 28-28 86z" fill="#fff" stroke="#fff" stroke-width="24" stroke-linejoin="round"/></g>
+<g id="dockrow">
+<rect x="80" y="18" width="88" height="88" rx="20" fill="#8E8E93" opacity="0.35"/>
+<rect x="190" y="18" width="88" height="88" rx="20" fill="#8E8E93" opacity="0.35"/>
+<svg x="300" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#D1"/></svg>
+<svg x="440" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#D2"/></svg>
+<svg x="580" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#D3"/></svg>
+<svg x="720" y="10" width="104" height="104" viewBox="0 0 1024 1024"><use href="#D4"/></svg>
+<rect x="860" y="18" width="88" height="88" rx="20" fill="#8E8E93" opacity="0.35"/>
+<rect x="970" y="18" width="88" height="88" rx="20" fill="#8E8E93" opacity="0.35"/>
+</g>
+</defs>
+<text x="40" y="56" class="h">Dock 应用图标候选</text>
+<svg x="30" y="80" width="270" height="270" viewBox="0 0 1024 1024"><use href="#D1"/></svg>
+<svg x="320" y="80" width="270" height="270" viewBox="0 0 1024 1024"><use href="#D2"/></svg>
+<svg x="610" y="80" width="270" height="270" viewBox="0 0 1024 1024"><use href="#D3"/></svg>
+<svg x="900" y="80" width="270" height="270" viewBox="0 0 1024 1024"><use href="#D4"/></svg>
+<text x="165" y="385" text-anchor="middle" class="l">D1 蓝色取景框</text>
+<text x="455" y="385" text-anchor="middle" class="l">D2 白色取景框</text>
+<text x="745" y="385" text-anchor="middle" class="l">D3 深色取景框</text>
+<text x="1035" y="385" text-anchor="middle" class="l">D4 取景框+光标</text>
+<text x="165" y="418" text-anchor="middle" class="s">最醒目，系统感强</text>
+<text x="455" y="418" text-anchor="middle" class="s">干净，像系统工具</text>
+<text x="745" y="418" text-anchor="middle" class="s">开发者风，带选区</text>
+<text x="1035" y="418" text-anchor="middle" class="s">一眼看出“框选”</text>
+<text x="40" y="500" class="h">放在 Dock 里的效果（浅色 / 深色）</text>
+<rect x="40" y="530" width="1120" height="130" rx="28" fill="#E9EAEE" stroke="#D0D2D8"/>
+<rect x="40" y="680" width="1120" height="130" rx="28" fill="#2B2C30" stroke="#3E4046"/>
+
+<use href="#dockrow" y="532"/>
+<use href="#dockrow" y="682"/>
+<text x="40" y="880" class="h">小尺寸可读性（32pt / 16pt）</text>
+<svg x="60" y="910" width="64" height="64" viewBox="0 0 1024 1024"><use href="#D1"/></svg><svg x="140" y="926" width="32" height="32" viewBox="0 0 1024 1024"><use href="#D1"/></svg>
+<svg x="350" y="910" width="64" height="64" viewBox="0 0 1024 1024"><use href="#D2"/></svg><svg x="430" y="926" width="32" height="32" viewBox="0 0 1024 1024"><use href="#D2"/></svg>
+<svg x="640" y="910" width="64" height="64" viewBox="0 0 1024 1024"><use href="#D3"/></svg><svg x="720" y="926" width="32" height="32" viewBox="0 0 1024 1024"><use href="#D3"/></svg>
+<svg x="930" y="910" width="64" height="64" viewBox="0 0 1024 1024"><use href="#D4"/></svg><svg x="1010" y="926" width="32" height="32" viewBox="0 0 1024 1024"><use href="#D4"/></svg>
+<text x="40" y="1060" class="s">灰色方块代表 Dock 中的其他应用。</text>
+</svg>
