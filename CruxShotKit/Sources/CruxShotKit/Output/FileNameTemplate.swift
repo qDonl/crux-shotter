@@ -8,7 +8,8 @@ public struct FileNameTemplate: Sendable {
     public init(pattern: String) { self.pattern = pattern }
 
     /// Expands each `{…}` group as a `DateFormatter` format; other text is kept verbatim.
-    /// `/` and `:` in the result are replaced with `-`.
+    /// `/` and `:` in the result are replaced with `-`; surrounding whitespace is trimmed. A
+    /// template that expands to nothing (e.g. empty or only spaces) falls back to `.default`.
     public func fileName(for date: Date, timeZone: TimeZone = .current) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -29,6 +30,11 @@ public struct FileNameTemplate: Sendable {
             rest = rest[rest.index(after: close)...]
         }
         result += rest
-        return result.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let name = result.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty, pattern != Self.default.pattern {
+            return Self.default.fileName(for: date, timeZone: timeZone)
+        }
+        return name
     }
 }

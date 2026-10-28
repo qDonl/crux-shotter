@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+import OSLog
 
 public enum ImageFormat: String, CaseIterable, Sendable {
     case png, jpg
@@ -24,6 +25,7 @@ public struct SaveResult: Sendable, Equatable {
 public enum ImageSaverError: Error { case encodingFailed }
 
 public struct ImageSaver {
+    private static let logger = Logger(subsystem: "com.cruxshot", category: "Output")
     private let fileManager: FileManager
 
     public init(fileManager: FileManager = .default) { self.fileManager = fileManager }
@@ -36,6 +38,7 @@ public struct ImageSaver {
             return SaveResult(url: try write(image, to: directory, fileName: fileName, format: format),
                               usedFallback: false)
         } catch {
+            Self.logger.error("save to \(directory.path, privacy: .public) failed, falling back to \(fallbackDirectory.path, privacy: .public): \(String(describing: error), privacy: .public)")
             return SaveResult(url: try write(image, to: fallbackDirectory, fileName: fileName, format: format),
                               usedFallback: true)
         }

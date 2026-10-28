@@ -105,8 +105,10 @@ private struct AboutTab: View {
     let updatesEnabled: Bool
 
     private var version: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
-            ?? CruxShotKit.version
+        let info = Bundle.main.infoDictionary ?? [:]
+        let short = (info["CFBundleShortVersionString"] as? String) ?? CruxShotKit.version
+        guard let build = info["CFBundleVersion"] as? String, !build.isEmpty else { return short }
+        return "\(short) (\(build))"
     }
 
     var body: some View {

@@ -33,6 +33,14 @@ private func cleanup(_ urls: URL...) {
         #expect(t.fileName(for: date, timeZone: TimeZone(identifier: "UTC")!) == "a-b 13-03")
     }
 
+    @Test(arguments: ["", "   ", " \n "])
+    func emptyTemplateFallsBackToDefault(pattern: String) {
+        let date = ISO8601DateFormatter().date(from: "2026-10-28T13:03:15Z")!
+        let tz = TimeZone(identifier: "Asia/Shanghai")!
+        #expect(FileNameTemplate(pattern: pattern).fileName(for: date, timeZone: tz)
+                == "CruxShotter 2026-10-28 21.03.15")
+    }
+
     @Test func createsMissingDirectory() throws {
         let base = try tmp(); let fb = try tmp()
         defer { cleanup(base, fb) }
