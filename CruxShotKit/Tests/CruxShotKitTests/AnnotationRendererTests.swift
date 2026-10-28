@@ -96,4 +96,22 @@ struct AnnotationRendererTests {
         for y in 70..<100 { for x in 10..<60 where s.color(atPixel: x, y) != white { textPixels += 1 } }
         #expect(textPixels > 20)
     }
+
+    @Test(arguments: [MosaicMode.pixelate, MosaicMode.blur])
+    func mosaicRegionIsNotVerticallyFlipped(mode: MosaicMode) {
+        // 60x60 px @2x: top half red, bottom half blue.
+        let red = RGBColor(r: 255, g: 0, b: 0), blue = RGBColor(r: 0, g: 0, b: 255)
+        let d = doc(width: 60, height: 60, scale: 2) { _, y in y < 30 ? red : blue }
+        // Points (4,4,16,6) -> pixels x 8..<40, y 8..<20.
+        d.add(Annotation(kind: .mosaic(CGRect(x: 4, y: 4, width: 16, height: 6), mode)))
+        let s = PixelSampler(image: AnnotationRenderer.render(d))
+        for (x, y) in [(10, 9), (24, 14), (38, 19)] {
+            let c = s.color(atPixel: x, y)!
+            #expect(c.r > 200 && c.b < 55, "inside region should stay red-derived at \(x),\(y)")
+        }
+        #expect(s.color(atPixel: 24, 7) == red)
+        #expect(s.color(atPixel: 24, 20) == red)
+        #expect(s.color(atPixel: 24, 40) == blue)
+        #expect(s.color(atPixel: 24, 59) == blue)
+    }
 }

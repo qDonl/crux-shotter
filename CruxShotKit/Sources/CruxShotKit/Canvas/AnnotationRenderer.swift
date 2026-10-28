@@ -7,6 +7,12 @@ public enum AnnotationRenderer {
     static let pixelateBlock: CGFloat = 12
     static let blurRadius: CGFloat = 10
 
+    /// Shared; CIContext is thread-safe, but not annotated Sendable.
+    nonisolated(unsafe) private static let ciContext: CIContext = {
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        return CIContext(options: [.workingColorSpace: space, .outputColorSpace: space])
+    }()
+
     /// Draws `annotations` in order into `ctx`, whose user space must be image points with a
     /// top-left origin (the caller sets up the flip/scale). Mosaics always sample `source`.
     public static func draw(_ annotations: [Annotation], source: CGImage, scale: CGFloat, in ctx: CGContext) {
@@ -139,7 +145,8 @@ public enum AnnotationRenderer {
             let f = CIFilter(name: "CIPixellate")
             f?.setValue(ci, forKey: kCIInputImageKey)
             f?.setValue(pixelateBlock * scale, forKey: kCIInputScaleKey)
-            // Blocks are anchored at `center`; use the crop's corner so edge blocks are full.
+            // Blocks are anchored at `center` in CI space (origin bottom-left); using the crop's
+            // origin anchors them at the crop's bottom-left, so only the top/right edge blocks can be partial.
             f?.setValue(CIVector(x: ci.extent.minX, y: ci.extent.minY), forKey: kCIInputCenterKey)
             filtered = f?.outputImage?.cropped(to: ci.extent)
         case .blur:
@@ -149,7 +156,7 @@ public enum AnnotationRenderer {
             filtered = f?.outputImage?.cropped(to: ci.extent)
         }
         let space = CGColorSpace(name: CGColorSpace.sRGB)!
-        let cictx = CIContext(options: [.workingColorSpace: space, .outputColorSpace: space])
+        let cictx = ciContext
         guard let out = filtered, let result = cictx.createCGImage(out, from: ci.extent) else { return }
 
         // Draw back at the snapped location; local flip because ctx is top-left.
