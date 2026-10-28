@@ -22,6 +22,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     private var dragStart: CGPoint = .zero
     private var dragOffset: CGVector = .zero
     private var isMovingSelection = false
+    private var resizeHandle: ResizeHandle?
+    private var resizeDraft: Annotation?
     private var textView: NSTextView?
     private var textOrigin: CGPoint = .zero
     private var cancellable: AnyCancellable?
@@ -45,21 +47,24 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     /// Sets the style for new shapes and, if something is selected, applies it to that annotation.
     public func applyStyle(_ newStyle: AnnotationStyle) {
         style = newStyle
-        if let id = selectedID {
+        if let id = validSelectedID {
             document.update(id: id) { $0.style = newStyle }
             changed()
         }
     }
 
     /// Commits the in-place text editor, if any. Empty or whitespace-only text adds nothing.
-    public func commitTextEditing() {
+    public func commitTextEditing() { commitText(refocus: true) }
+
+    private func commitText(refocus: Bool) {
         guard let tv = textView else { return }
         textView = nil
+        tv.unmarkText()
         let string = tv.string
         let editStyle = style
         tv.delegate = nil
         tv.removeFromSuperview()
-        window?.makeFirstResponder(self)
+        if refocus { window?.makeFirstResponder(self) }
         guard !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         document.add(Annotation(kind: .text(origin: textOrigin, string: string), style: editStyle))
         changed()
@@ -70,18 +75,26 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     public override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         var items = document.annotations
-        if isMovingSelection, let id = selectedID, let i = items.firstIndex(where: { $0.id == id }) {
-            items[i] = items[i].translated(by: dragOffset)
+        if let id = validSelectedID, let i = items.firstIndex(where: { $0.id == id }) {
+            if isMovingSelection { items[i] = items[i].translated(by: dragOffset) }
+            if let resizeDraft { items[i] = resizeDraft }
         }
         if let draft { items.append(draft) }
         AnnotationRenderer.draw(items, source: document.image, scale: document.scale, in: ctx)
 
-        if let id = selectedID, let sel = items.first(where: { $0.id == id }) {
+        if let id = validSelectedID, let sel = items.first(where: { $0.id == id }) {
             ctx.saveGState()
             ctx.setStrokeColor(PaletteColor.blue.cgColor)
             ctx.setLineWidth(1)
             ctx.setLineDash(phase: 0, lengths: [4, 3])
             ctx.stroke(sel.bounds.insetBy(dx: -3, dy: -3))
+            for (_, c) in AnnotationResizer.handles(for: sel) {
+                let box = CGRect(x: c.x - 3, y: c.y - 3, width: 6, height: 6)
+                ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+                ctx.fill(box)
+                ctx.setLineDash(phase: 0, lengths: [])
+                ctx.stroke(box)
+            }
             ctx.restoreGState()
         }
     }
@@ -95,6 +108,12 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         dragStart = p
         dragOffset = .zero
         guard let tool else {
+            if let id = validSelectedID, let sel = document.annotations.first(where: { $0.id == id }),
+               let h = AnnotationResizer.handle(at: p, for: sel) {
+                resizeHandle = h
+                resizeDraft = sel
+                return
+            }
             let hit = AnnotationHitTester.hit(p, in: document.annotations)
             select(hit)
             isMovingSelection = false
@@ -120,7 +139,10 @@ public final class CanvasView: NSView, NSTextViewDelegate {
                 draft = makeDraft(tool, to: p, id: d.id)
             }
             needsDisplay = true
-        } else if tool == nil, selectedID != nil {
+        } else if let h = resizeHandle, let base = resizeDraft {
+            resizeDraft = AnnotationResizer.resized(base, handle: h, to: p)
+            needsDisplay = true
+        } else if tool == nil, validSelectedID != nil {
             isMovingSelection = true
             dragOffset = CGVector(dx: p.x - dragStart.x, dy: p.y - dragStart.y)
             needsDisplay = true
@@ -132,7 +154,15 @@ public final class CanvasView: NSView, NSTextViewDelegate {
             draft = nil
             if isValid(d) { document.add(d); changed() }
             needsDisplay = true
-        } else if isMovingSelection, let id = selectedID {
+        } else if let draftResize = resizeDraft {
+            resizeHandle = nil
+            resizeDraft = nil
+            if let id = validSelectedID, document.annotations.first(where: { $0.id == id })?.kind != draftResize.kind {
+                document.update(id: id) { $0.kind = draftResize.kind }
+                changed()
+            }
+            needsDisplay = true
+        } else if isMovingSelection, let id = validSelectedID {
             isMovingSelection = false
             if dragOffset != .zero {
                 document.translate(id: id, by: dragOffset)
@@ -148,7 +178,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     public override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 51, 117:
-            if let id = selectedID {
+            if let id = validSelectedID {
                 selectedID = nil
                 document.remove(id: id)
                 changed()
@@ -191,7 +221,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     public func textDidEndEditing(_ notification: Notification) {
-        commitTextEditing()
+        commitText(refocus: false)
     }
 
     public func textDidChange(_ notification: Notification) {
@@ -201,6 +231,14 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     // MARK: Helpers
+
+    /// `selectedID`, or nil (clearing it) if that annotation no longer exists, e.g. after undo.
+    private var validSelectedID: Annotation.ID? {
+        guard let id = selectedID else { return nil }
+        if document.annotations.contains(where: { $0.id == id }) { return id }
+        selectedID = nil
+        return nil
+    }
 
     private func select(_ id: Annotation.ID?) {
         guard selectedID != id else { return }
