@@ -15,6 +15,9 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     public var style = AnnotationStyle()
     public var mosaicMode: MosaicMode = .pixelate
     public var onChange: (() -> Void)?
+    /// Double-click in selection mode (`tool == nil`) that misses every annotation and did not
+    /// end a text edit. The overlay uses it for "double-click to copy".
+    public var onDoubleClick: (() -> Void)?
     public var isEditingText: Bool { textView != nil }
 
     private(set) var selectedID: Annotation.ID?
@@ -27,6 +30,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     private var textView: NSTextView?
     private var textOrigin: CGPoint = .zero
     private var cancellable: AnyCancellable?
+    /// The first click of the current click sequence committed an in-place text edit.
+    private var clickSequenceEndedEditing = false
 
     public override var isFlipped: Bool { true }
     public override var acceptsFirstResponder: Bool { true }
@@ -102,6 +107,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     // MARK: Mouse
 
     public override func mouseDown(with event: NSEvent) {
+        let wasEditingText = isEditingText
+        if event.clickCount <= 1 { clickSequenceEndedEditing = wasEditingText }
         window?.makeFirstResponder(self)
         commitTextEditing()
         let p = convert(event.locationInWindow, from: nil)
@@ -115,6 +122,10 @@ public final class CanvasView: NSView, NSTextViewDelegate {
                 return
             }
             let hit = AnnotationHitTester.hit(p, in: document.annotations)
+            if hit == nil, event.clickCount == 2, !wasEditingText, !clickSequenceEndedEditing, let onDoubleClick {
+                onDoubleClick()
+                return
+            }
             select(hit)
             isMovingSelection = false
             return

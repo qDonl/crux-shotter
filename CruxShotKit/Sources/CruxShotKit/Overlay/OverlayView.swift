@@ -33,11 +33,14 @@ enum SelectionHandle: CaseIterable {
         return CGRect(x: min(minX, maxX), y: min(minY, maxY), width: abs(maxX - minX), height: abs(maxY - minY))
     }
 
-    /// Handle (or edge, mapped to its side handle) under `p`, if any.
-    static func hit(_ p: CGPoint, in r: CGRect, radius: CGFloat = 6) -> SelectionHandle? {
+    /// Handle (or edge, mapped to its side handle) under `p`, if any. Handles match within
+    /// `radius` on both sides of the border; edges match within 4pt outside the rect, and also
+    /// inside it when `innerEdges` is true.
+    static func hit(_ p: CGPoint, in r: CGRect, radius: CGFloat = 6, innerEdges: Bool = true) -> SelectionHandle? {
         if let h = allCases.first(where: { hypot($0.point(in: r).x - p.x, $0.point(in: r).y - p.y) <= radius }) {
             return h
         }
+        if !innerEdges, r.contains(p) { return nil }
         let inX = p.x >= r.minX && p.x <= r.maxX, inY = p.y >= r.minY && p.y <= r.maxY
         if inX, abs(p.y - r.maxY) <= 4 { return .top }
         if inX, abs(p.y - r.minY) <= 4 { return .bottom }
@@ -164,7 +167,7 @@ final class OverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         shiftArmed = false
-        controller?.mouseDown(at: global(event))
+        controller?.mouseDown(at: global(event), clickCount: event.clickCount)
     }
 
     override func mouseDragged(with event: NSEvent) { controller?.mouseDragged(to: global(event)) }

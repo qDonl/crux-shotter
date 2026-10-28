@@ -119,7 +119,7 @@ public final class OverlayController {
         if let tb = toolbar, tb.superview === view, tb.frame.contains(p) { return false }
         let g = view.global(p)
         if isGeometryEditable, let r = model.rect {
-            if SelectionHandle.hit(g, in: r) != nil { return true }
+            if geometryHandle(at: g, in: r) != nil { return true }
             if r.contains(g), canvas?.tool == nil { return true }
         }
         return false
@@ -138,15 +138,22 @@ public final class OverlayController {
         }
     }
 
-    func mouseDown(at g: CGPoint) {
+    func mouseDown(at g: CGPoint, clickCount: Int) {
         cursor = g
         switch model.phase {
         case .selecting:
             model.mouseDown(at: g)
             refresh()
         case .adjusting:
+            // Double-click inside the selection with no drawing tool copies. (When annotations
+            // exist the canvas gets the clicks and reports this through `onDoubleClick`.)
+            if clickCount == 2, canvas?.tool == nil, let rect = model.rect, rect.contains(g) {
+                geometryDrag = nil
+                perform(.copy)
+                return
+            }
             guard isGeometryEditable, let rect = model.rect else { return }
-            if let h = SelectionHandle.hit(g, in: rect) {
+            if let h = geometryHandle(at: g, in: rect) {
                 geometryDrag = .resize(h, start: rect, from: g)
             } else if rect.contains(g), canvas?.tool == nil {
                 geometryDrag = .move(start: rect, from: g)
@@ -199,7 +206,7 @@ public final class OverlayController {
         guard let rect = model.rect else { return }
         if let tb = toolbar, let host = canvasHost, host.display.frame.contains(g), tb.frame.contains(host.local(g)) {
             NSCursor.arrow.set()
-        } else if isGeometryEditable, SelectionHandle.hit(g, in: rect) != nil {
+        } else if isGeometryEditable, geometryHandle(at: g, in: rect) != nil {
             NSCursor.crosshair.set()
         } else if rect.contains(g) {
             (canvas?.tool == nil && isGeometryEditable ? NSCursor.openHand : NSCursor.crosshair).set()
@@ -288,6 +295,12 @@ public final class OverlayController {
               let host = windows.first(where: { $0.overlayView.display.displayID == crop.frame.display.displayID })?.overlayView
         else {
             Self.logger.error("selection crop failed")
+            // Drop the stale canvas so nothing can export the previous selection.
+            document = nil
+            canvas = nil
+            canvasHost = nil
+            toolbar = nil
+            cropGlobalRect = .null
             refresh()
             return
         }
@@ -297,6 +310,7 @@ public final class OverlayController {
         cv.mosaicMode = preferences.mosaicMode
         cv.tool = tool
         cv.onChange = { [weak self] in self?.documentChanged() }
+        cv.onDoubleClick = { [weak self] in self?.perform(.copy) }
         cv.setFrameOrigin(host.local(crop.globalRect).origin)
         host.addSubview(cv, positioned: .below, relativeTo: host.magnifier)
 
@@ -368,6 +382,12 @@ public final class OverlayController {
         var y = r.minY - Self.toolbarGap - size.height
         if y < b.minY + m { y = max(r.minY + Self.toolbarGap, b.minY + m) }
         tb.frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
+    }
+
+    /// With a drawing tool active, only the handles and the band outside the border resize, so
+    /// strokes started just inside the edge still draw.
+    private func geometryHandle(at g: CGPoint, in rect: CGRect) -> SelectionHandle? {
+        SelectionHandle.hit(g, in: rect, innerEdges: canvas?.tool == nil)
     }
 
     private var selectionScale: CGFloat {
