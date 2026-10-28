@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 import CruxShotKit
 import KeyboardShortcuts
@@ -15,7 +16,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let onboarding = OnboardingWindow()
     private var settingsWindow: NSWindow?
 
+    /// Updates need an EdDSA public key baked in at build time (`SPARKLE_PUBLIC_KEY`); without one
+    /// the updater is created but never started and the UI entry points are disabled.
+    private static let hasUpdateKey: Bool = {
+        let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
+        return !(key ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+    }()
+    private var updaterController: SPUStandardUpdaterController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: Self.hasUpdateKey, updaterDelegate: nil, userDriverDelegate: nil)
         let presenter = PinWindowPresenter()
         let pins = PinManager(presenter: presenter)
         presenter.manager = pins
@@ -36,6 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController = StatusItemController(coordinator: coordinator, presenter: presenter,
                                                 conflicts: .shared,
                                                 openSettings: { [weak self] in self?.showSettings() })
+        if Self.hasUpdateKey {
+            statusController?.checkForUpdates = { [weak self] in self?.updaterController?.checkForUpdates(nil) }
+        }
 
         let defaults = UserDefaults.standard
         if !ScreenCapturePermission.isGranted, !defaults.bool(forKey: Self.onboardingShownKey) {
@@ -57,7 +71,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (LSUIElement) app is unreliable on macOS 14.
     private func showSettings() {
         let window = settingsWindow ?? {
-            let view = SettingsView(preferences: .shared, checkForUpdates: {})
+            let view = SettingsView(preferences: .shared,
+                                    checkForUpdates: { [weak self] in self?.updaterController?.checkForUpdates(nil) },
+                                    updatesEnabled: Self.hasUpdateKey)
             let w = NSWindow(contentViewController: NSHostingController(rootView: view))
             w.title = "CruxShotter 设置"
             w.styleMask = [.titled, .closable]

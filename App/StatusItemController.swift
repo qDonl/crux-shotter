@@ -12,7 +12,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let coordinator: AppCoordinator
     private let presenter: PinWindowPresenter
     private let openSettings: () -> Void
-    /// Nil until Sparkle is wired (Task 16); the item stays disabled meanwhile.
+    /// Nil when auto-update is not configured (no Sparkle public key); the item stays disabled.
     var checkForUpdates: (() -> Void)?
 
     private let statusItem: NSStatusItem
@@ -101,6 +101,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         restoreItem.isEnabled = pins.canRestore
         closeAllItem.isEnabled = !pins.items.isEmpty
         updatesItem.isEnabled = checkForUpdates != nil
+        updatesItem.toolTip = checkForUpdates == nil ? "自动更新尚未配置" : nil
 
         let submenu = NSMenu()
         submenu.autoenablesItems = false

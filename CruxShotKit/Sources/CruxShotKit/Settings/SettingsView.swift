@@ -5,10 +5,13 @@ import KeyboardShortcuts
 public struct SettingsView: View {
     @ObservedObject private var preferences: Preferences
     private let checkForUpdates: () -> Void
+    private let updatesEnabled: Bool
 
-    public init(preferences: Preferences, checkForUpdates: @escaping () -> Void = {}) {
+    public init(preferences: Preferences, checkForUpdates: @escaping () -> Void = {},
+                updatesEnabled: Bool = true) {
         self.preferences = preferences
         self.checkForUpdates = checkForUpdates
+        self.updatesEnabled = updatesEnabled
     }
 
     public var body: some View {
@@ -17,7 +20,7 @@ public struct SettingsView: View {
                 .tabItem { Text("通用") }
             ShortcutsTab()
                 .tabItem { Text("快捷键") }
-            AboutTab(checkForUpdates: checkForUpdates)
+            AboutTab(checkForUpdates: checkForUpdates, updatesEnabled: updatesEnabled)
                 .tabItem { Text("关于") }
         }
         .frame(width: 480, height: 320)
@@ -88,6 +91,7 @@ private struct ShortcutsTab: View {
 
 private struct AboutTab: View {
     let checkForUpdates: () -> Void
+    let updatesEnabled: Bool
 
     private var version: String {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
@@ -96,10 +100,12 @@ private struct AboutTab: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("CruxShot").font(.title)
+            Text("CruxShotter").font(.title)
             Text("版本 \(version)").foregroundStyle(.secondary)
-            Link("GitHub", destination: URL(string: "https://github.com/cruxshot/cruxshot")!)
+            Link("GitHub", destination: URL(string: "https://github.com/qDonl/crux-shotter")!)
             Button("检查更新", action: checkForUpdates)
+                .disabled(!updatesEnabled)
+                .help(updatesEnabled ? "" : "自动更新尚未配置")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
