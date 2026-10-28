@@ -11,6 +11,8 @@ cask "crux-shotter" do
 
   app "CruxShotter.app"
 
+  uninstall quit: "com.cruxshot.CruxShot"
+
   zap trash: [
     "~/Library/Preferences/com.cruxshot.CruxShot.plist",
   ]
