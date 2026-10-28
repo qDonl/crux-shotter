@@ -106,12 +106,14 @@ public enum AnnotationRenderer {
 
     private static func drawText(_ string: String, at origin: CGPoint, fontSize: CGFloat, color: CGColor, in ctx: CGContext) {
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
+            .font: Annotation.textFont(size: fontSize),
             .foregroundColor: NSColor(cgColor: color) ?? NSColor.red,
         ]
         let str = NSAttributedString(string: string, attributes: attrs)
+        let extent = Annotation.textLayoutExtent
         withFlippedGraphics(ctx) {
-            str.draw(with: CGRect(x: origin.x, y: origin.y, width: 10_000, height: 10_000),
+            // Huge layout width: never wraps; only explicit newlines break lines (same as the editor).
+            str.draw(with: CGRect(x: origin.x, y: origin.y, width: extent, height: extent),
                      options: [.usesLineFragmentOrigin])
         }
     }
@@ -155,7 +157,6 @@ public enum AnnotationRenderer {
             f?.setValue(blurRadius * scale, forKey: kCIInputRadiusKey)
             filtered = f?.outputImage?.cropped(to: ci.extent)
         }
-        let space = CGColorSpace(name: CGColorSpace.sRGB)!
         let cictx = ciContext
         guard let out = filtered, let result = cictx.createCGImage(out, from: ci.extent) else { return }
 

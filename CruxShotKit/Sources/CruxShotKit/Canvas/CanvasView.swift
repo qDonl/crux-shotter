@@ -205,7 +205,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     private func beginTextEditing(at p: CGPoint) {
         textOrigin = p
-        let font = NSFont.systemFont(ofSize: style.fontSize, weight: .semibold)
+        let font = Annotation.textFont(size: style.fontSize)
         let height = ceil(font.ascender - font.descender + font.leading)
         let tv = NSTextView(frame: CGRect(x: p.x, y: p.y, width: max(40, bounds.maxX - p.x), height: height))
         tv.drawsBackground = false
@@ -216,8 +216,14 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         tv.insertionPointColor = NSColor(cgColor: style.color.cgColor)
         tv.textContainerInset = .zero
         tv.textContainer?.lineFragmentPadding = 0
+        // No soft wrapping: like AnnotationRenderer, only explicit newlines break lines, so what
+        // is typed matches what is exported (text past the image edge is clipped in both).
+        let extent = Annotation.textLayoutExtent
         tv.isVerticallyResizable = true
-        tv.isHorizontallyResizable = false
+        tv.isHorizontallyResizable = true
+        tv.maxSize = CGSize(width: extent, height: extent)
+        tv.textContainer?.widthTracksTextView = false
+        tv.textContainer?.containerSize = CGSize(width: extent, height: extent)
         tv.autoresizingMask = []
         tv.delegate = self
         addSubview(tv)

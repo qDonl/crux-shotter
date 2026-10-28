@@ -65,6 +65,23 @@ public struct Annotation: Identifiable, Sendable, Equatable {
         self.style = style
     }
 
+    /// Text annotation font; shared by the renderer, `bounds` and the in-place editor.
+    static func textFont(size: CGFloat) -> NSFont { .systemFont(ofSize: size, weight: .semibold) }
+
+    /// Size of a text annotation exactly as `AnnotationRenderer` lays it out: no wrapping, only
+    /// explicit newlines break lines.
+    static func textSize(_ string: String, fontSize: CGFloat) -> CGSize {
+        let font = textFont(size: fontSize)
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        guard !string.isEmpty else { return CGSize(width: 0, height: lineHeight) }
+        let r = NSAttributedString(string: string, attributes: [.font: font]).boundingRect(
+            with: CGSize(width: textLayoutExtent, height: textLayoutExtent), options: [.usesLineFragmentOrigin])
+        return CGSize(width: ceil(r.width), height: max(ceil(r.height), lineHeight))
+    }
+
+    /// Layout width/height large enough that text never wraps (renderer and editor).
+    static let textLayoutExtent: CGFloat = 10_000
+
     /// Counter circle diameter as a multiple of fontSize; shared by renderer and hit testing.
     public static let counterDiameterFactor: CGFloat = 2.2
 
@@ -92,9 +109,8 @@ public struct Annotation: Identifiable, Sendable, Equatable {
         case .pen(let pts):
             return Self.box(of: pts)
         case .text(let o, let s):
-            let size = (s as NSString).size(withAttributes: nil)
-            let w = max(size.width, 1) * style.fontSize / 12
-            return CGRect(x: o.x, y: o.y, width: w, height: style.fontSize * 1.3)
+            let size = Self.textSize(s, fontSize: style.fontSize)
+            return CGRect(x: o.x, y: o.y, width: max(size.width, 1), height: size.height)
         case .counter(let c, _):
             let radius = Self.counterDiameterFactor * style.fontSize / 2
             return CGRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2)

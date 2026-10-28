@@ -97,6 +97,35 @@ struct AnnotationRendererTests {
         #expect(textPixels > 20)
     }
 
+    @Test func longTextNearRightEdgeStaysOnOneLine() {
+        // Narrow image; long single-line text starting near the right edge must not wrap (the
+        // editor does not wrap either) — it runs off the edge and is clipped.
+        let d = doc(width: 120, height: 80)
+        let text = Annotation(kind: .text(origin: CGPoint(x: 70, y: 4), string: "WWWWWWWWWWWWWWWWWWWW"))
+        d.add(text)
+        let lineHeight = Annotation.textSize("W", fontSize: text.style.fontSize).height
+        #expect(text.bounds.height == lineHeight)
+        #expect(text.bounds.maxX > 120)
+
+        let s = PixelSampler(image: AnnotationRenderer.render(d))
+        let bandEnd = Int(ceil(4 + lineHeight))
+        var inBand = 0, belowBand = 0
+        for y in 0..<80 {
+            for x in 0..<120 where s.color(atPixel: x, y) != white {
+                if y < bandEnd { inBand += 1 } else { belowBand += 1 }
+            }
+        }
+        #expect(inBand > 20)
+        #expect(belowBand == 0)
+    }
+
+    @Test func textBoundsMatchRenderedLines() {
+        let one = Annotation(kind: .text(origin: .zero, string: "Hi"))
+        let two = Annotation(kind: .text(origin: .zero, string: "Hi\nYo"))
+        #expect(two.bounds.height > one.bounds.height * 1.5)
+        #expect(one.bounds.width > 0)
+    }
+
     @Test(arguments: [MosaicMode.pixelate, MosaicMode.blur])
     func mosaicRegionIsNotVerticallyFlipped(mode: MosaicMode) {
         // 60x60 px @2x: top half red, bottom half blue.
