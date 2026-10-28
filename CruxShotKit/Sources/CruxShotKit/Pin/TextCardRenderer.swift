@@ -9,19 +9,18 @@ public enum TextCardRenderer {
 
     public static func render(_ text: String, dark: Bool, scale: CGFloat) -> CGImage {
         let normalized = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
-        var lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map { raw -> String in
-            let s = raw.replacingOccurrences(of: "\t", with: "    ")
+        let total = normalized.utf8.reduce(1) { $1 == 0x0A ? $0 + 1 : $0 }
+        let head = normalized.split(separator: "\n", maxSplits: maxLines, omittingEmptySubsequences: false).prefix(maxLines)
+        var lines = head.map { raw -> String in
+            let s = String(raw.prefix(maxLineLength + 1)).replacingOccurrences(of: "\t", with: "    ")
             return s.count > maxLineLength ? String(s.prefix(maxLineLength)) + "…" : s
         }
-        let total = lines.count
-        if total > maxLines {
-            lines = Array(lines.prefix(maxLines)) + ["…（共 \(total) 行）"]
-        }
+        if total > maxLines { lines.append("…（共 \(total) 行）") }
 
         let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         let fg = dark ? rgb(0xE5E5E5) : rgb(0x1C1C1E)
         let bg = dark ? rgb(0x1E1E1E) : rgb(0xFFFFFF)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: fg]
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): fg]
         let ctLines = lines.map { CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attrs)) }
 
         let lineHeight = ceil(font.ascender - font.descender + font.leading)
@@ -38,6 +37,7 @@ public enum TextCardRenderer {
         ctx.setFillColor(bg)
         ctx.fillPath()
 
+        ctx.setFillColor(fg)
         for (i, line) in ctLines.enumerated() {
             let baselineY = size.height - padding - CGFloat(i) * lineHeight - font.ascender
             ctx.textPosition = CGPoint(x: padding, y: baselineY)
