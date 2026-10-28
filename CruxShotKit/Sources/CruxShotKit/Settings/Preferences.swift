@@ -11,7 +11,7 @@ public final class Preferences: ObservableObject {
 
     static var defaultSaveDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop").appendingPathComponent("CruxShot")
+            .appendingPathComponent("Desktop").appendingPathComponent("CruxShotter")
     }
 
     private let defaults: UserDefaults

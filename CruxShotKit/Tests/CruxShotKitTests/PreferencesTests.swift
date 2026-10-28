@@ -6,7 +6,7 @@ import KeyboardShortcuts
 @MainActor
 @Test func defaults() {
     let p = Preferences(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-    #expect(p.saveDirectory.path.hasSuffix("/Desktop/CruxShot"))
+    #expect(p.saveDirectory.path.hasSuffix("/Desktop/CruxShotter"))
     #expect(p.imageFormat == .png)
     #expect(p.fileNameTemplate == FileNameTemplate.default.pattern)
     #expect(p.lastColor == .red && p.lastLineWidth == .medium && p.colorFormat == .hex)

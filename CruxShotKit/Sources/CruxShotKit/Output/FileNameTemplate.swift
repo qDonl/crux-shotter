@@ -1,7 +1,7 @@
 import Foundation
 
 public struct FileNameTemplate: Sendable {
-    public static let `default` = FileNameTemplate(pattern: "CruxShot {yyyy-MM-dd HH.mm.ss}")
+    public static let `default` = FileNameTemplate(pattern: "CruxShotter {yyyy-MM-dd HH.mm.ss}")
 
     public let pattern: String
 

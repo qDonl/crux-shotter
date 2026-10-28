@@ -24,7 +24,7 @@ private func cleanup(_ urls: URL...) {
     @Test func defaultFileName() {
         let date = ISO8601DateFormatter().date(from: "2026-10-28T13:03:15Z")!
         #expect(FileNameTemplate.default.fileName(for: date, timeZone: TimeZone(identifier: "Asia/Shanghai")!)
-                == "CruxShot 2026-10-28 21.03.15")
+                == "CruxShotter 2026-10-28 21.03.15")
     }
 
     @Test func slashAndColonReplaced() {

@@ -1,6 +1,6 @@
-# CruxShot
+# CruxShotter
 
-CruxShot is a macOS 14+ menu-bar screenshot app built with Swift 6, AppKit and SwiftUI.
+CruxShotter is a macOS 14+ menu-bar screenshot app built with Swift 6, AppKit and SwiftUI.
 
 ## Build
 

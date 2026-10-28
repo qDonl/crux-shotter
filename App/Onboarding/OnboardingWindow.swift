@@ -29,7 +29,7 @@ final class OnboardingWindow {
         w.title = "CruxShotter"
         w.styleMask = [.titled, .closable]
         w.isReleasedWhenClosed = false
-        w.level = .floating
+        w.level = .normal
         return w
     }
 
