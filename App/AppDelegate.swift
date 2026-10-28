@@ -27,14 +27,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: Self.hasUpdateKey, updaterDelegate: nil, userDriverDelegate: nil)
-        let presenter = PinWindowPresenter()
+        // The presenter is needed to build the coordinator, so its callbacks reach it weakly.
+        weak var weakCoordinator: AppCoordinator?
+        let presenter = PinWindowPresenter(onSave: { weakCoordinator?.save($0) },
+                                           onOCR: { weakCoordinator?.recognizeToClipboard($0) })
         let pins = PinManager(presenter: presenter)
         presenter.manager = pins
 
         let coordinator = AppCoordinator(capture: ScreenCaptureService(), preferences: .shared, pins: pins)
         coordinator.showOnboarding = { [onboarding] in onboarding.show() }
-        presenter.onSave = { [weak coordinator] image in coordinator?.save(image) }
-        presenter.onOCR = { [weak coordinator] image in coordinator?.recognizeToClipboard(image) }
+        weakCoordinator = coordinator
         self.coordinator = coordinator
 
         onboarding.willRelaunch = { KeyboardShortcuts.disable(Self.allShortcuts) }
@@ -59,17 +61,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func registerShortcuts(_ c: AppCoordinator) {
-        KeyboardShortcuts.onKeyUp(for: .captureArea) { [weak c] in c?.captureArea() }
-        KeyboardShortcuts.onKeyUp(for: .captureFullScreen) { [weak c] in c?.captureFullScreen() }
-        KeyboardShortcuts.onKeyUp(for: .captureOCR) { [weak c] in c?.captureOCR() }
-        KeyboardShortcuts.onKeyUp(for: .pinClipboard) { [weak c] in c?.pinClipboard() }
-        KeyboardShortcuts.onKeyUp(for: .togglePins) { [weak c] in c?.togglePins() }
-        KeyboardShortcuts.onKeyUp(for: .restorePin) { [weak c] in c?.restorePin() }
+        KeyboardShortcuts.onKeyDown(for: .captureArea) { [weak c] in c?.captureArea() }
+        KeyboardShortcuts.onKeyDown(for: .captureFullScreen) { [weak c] in c?.captureFullScreen() }
+        KeyboardShortcuts.onKeyDown(for: .captureOCR) { [weak c] in c?.captureOCR() }
+        KeyboardShortcuts.onKeyDown(for: .pinClipboard) { [weak c] in c?.pinClipboard() }
+        KeyboardShortcuts.onKeyDown(for: .togglePins) { [weak c] in c?.togglePins() }
+        KeyboardShortcuts.onKeyDown(for: .restorePin) { [weak c] in c?.restorePin() }
     }
 
     /// Own window rather than the SwiftUI `Settings` scene: opening that scene from an accessory
     /// (LSUIElement) app is unreliable on macOS 14.
-    private func showSettings() {
+    func showSettings() {
         let window = settingsWindow ?? {
             let view = SettingsView(preferences: .shared,
                                     checkForUpdates: { [weak self] in self?.updaterController?.checkForUpdates(nil) },

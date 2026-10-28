@@ -76,7 +76,7 @@ private final class Controller: NSObject {
         textView.string = text
         textView.undoManager?.removeAllActions()
         if !panel.isVisible { panel.center() }
-        NSApp.activate()
+        ActivationHelper.activateForKeyboard()
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(textView)
         textView.setSelectedRange(NSRange(location: 0, length: 0))

@@ -178,7 +178,7 @@ final class AppCoordinator {
             previousApp = front == .current ? nil : front
             let controller = OverlayController(snapshot: snapshot, mode: mode, preferences: preferences)
             overlay = controller
-            NSApp.activate()
+            ActivationHelper.activateForKeyboard()
             controller.present { [weak self] result in
                 guard let self else { return }
                 overlay = nil

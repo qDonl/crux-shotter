@@ -1,11 +1,18 @@
 import SwiftUI
-import CruxShotKit
 
 @main
 struct CruxShotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        Settings { SettingsView(preferences: .shared, checkForUpdates: {}, updatesEnabled: false) }
+        // SwiftUI requires a scene; the real settings window is AppDelegate's own NSWindow, so this
+        // scene is empty and ⌘, is routed there to keep a single settings window.
+        Settings { EmptyView() }
+            .commands {
+                CommandGroup(replacing: .appSettings) {
+                    Button("设置…") { appDelegate.showSettings() }
+                        .keyboardShortcut(",", modifiers: .command)
+                }
+            }
     }
 }

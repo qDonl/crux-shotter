@@ -1,6 +1,6 @@
 import AppKit
 
-/// One borderless, shielding-level window per captured display. Its content is the frozen
+/// One borderless, above-the-menu-bar window per captured display. Its content is the frozen
 /// screenshot (as a layer, so redraws of the overlay never re-decode the image) with an
 /// `OverlayView` on top.
 @MainActor
@@ -11,7 +11,11 @@ final class OverlayWindow: NSWindow {
         let rect = captured.display.frame
         overlayView = OverlayView(captured: captured, controller: controller)
         super.init(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
-        level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        // Above the menu bar and status items (+2 clears the status-item level), but deliberately
+        // NOT at CGShieldingWindowLevel: input-method candidate / popup windows (e.g. the Chinese
+        // pinyin candidate list while typing a text annotation) sit below the shielding level and
+        // would be hidden behind the overlay.
+        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isOpaque = true
         backgroundColor = .black

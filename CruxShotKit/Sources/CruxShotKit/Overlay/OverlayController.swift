@@ -68,7 +68,7 @@ public final class OverlayController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.cancel() }
         }
-        NSApp.activate()
+        ActivationHelper.activateForKeyboard()
         cursor = NSEvent.mouseLocation
         for (i, w) in windows.enumerated() {
             w.orderFrontRegardless()
@@ -89,7 +89,12 @@ public final class OverlayController {
         isFinished = true
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
-        for w in windows { w.orderOut(nil) }
+        // `isReleasedWhenClosed = false` (OverlayWindow.init), so close() only tears the window down;
+        // ARC releases it when `windows` is emptied.
+        for w in windows {
+            w.orderOut(nil)
+            w.close()
+        }
         windows.removeAll()
         canvas = nil
         canvasHost = nil

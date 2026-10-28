@@ -17,7 +17,7 @@ final class OnboardingWindow {
     func show() {
         let w = window ?? makeWindow()
         window = w
-        NSApp.activate()
+        ActivationHelper.activateForKeyboard()
         if !w.isVisible { w.center() }
         w.makeKeyAndOrderFront(nil)
     }

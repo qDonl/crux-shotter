@@ -21,7 +21,7 @@ public final class ShortcutConflicts: ObservableObject {
 
     public func isConflicted(_ name: KeyboardShortcuts.Name) -> Bool { conflicted.contains(name) }
 
-    /// Probes `names` now (call before adding `onKeyUp` handlers) and again whenever one changes.
+    /// Probes `names` now (call before adding `onKeyDown` handlers) and again whenever one changes.
     public func monitor(_ names: [KeyboardShortcuts.Name]) {
         monitored.formUnion(names)
         for name in names { recheck(name) }

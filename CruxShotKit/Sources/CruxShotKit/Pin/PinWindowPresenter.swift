@@ -5,15 +5,18 @@ import AppKit
 @MainActor
 public final class PinWindowPresenter: PinPresenting {
     public weak var manager: PinManager?
-    /// Overrides the built-in OCR (copy recognised text + toast) when set.
-    public var onOCR: ((CGImage) -> Void)?
-    /// Overrides the built-in save (`ImageSaver` with `Preferences.shared` + toast) when set.
-    public var onSave: ((CGImage) -> Void)?
+    /// Context-menu / ⌘S 「保存」: the app routes this through the same save flow as captures.
+    private let onSave: (CGImage) -> Void
+    /// Context-menu 「识别文字」: the app routes this through the same OCR flow as captures.
+    private let onOCR: (CGImage) -> Void
 
     private var controllers: [PinItem.ID: PinWindowController] = [:]
     private var isHidden = false
 
-    public init() {}
+    public init(onSave: @escaping (CGImage) -> Void, onOCR: @escaping (CGImage) -> Void) {
+        self.onSave = onSave
+        self.onOCR = onOCR
+    }
 
     // MARK: PinPresenting
 
@@ -60,32 +63,7 @@ public final class PinWindowPresenter: PinPresenting {
         Toast.show("已复制")
     }
 
-    func save(_ image: CGImage) {
-        if let onSave { return onSave(image) }
-        let prefs = Preferences.shared
-        let name = FileNameTemplate(pattern: prefs.fileNameTemplate).fileName(for: Date())
-        do {
-            let result = try ImageSaver().save(image, directory: prefs.saveDirectory, fileName: name,
-                                               format: prefs.imageFormat, fallbackDirectory: Preferences.fallbackDirectory)
-            let url = result.url
-            Toast.show(result.usedFallback ? "已保存到备用目录" : "已保存", detail: url.path(percentEncoded: false),
-                       action: ("在 Finder 中显示", { NSWorkspace.shared.activateFileViewerSelecting([url]) }))
-        } catch {
-            Toast.show("保存失败", detail: error.localizedDescription)
-        }
-    }
+    func save(_ image: CGImage) { onSave(image) }
 
-    func ocr(_ image: CGImage) {
-        if let onOCR { return onOCR(image) }
-        Task { @MainActor in
-            do {
-                let lines = try await TextRecognizer.recognize(image)
-                guard !lines.isEmpty else { return Toast.show("未识别到文字") }
-                ClipboardWriter.write(text: lines.joinedAsLines)
-                Toast.show("已复制识别的文字", detail: lines.joinedAsSingleLine)
-            } catch {
-                Toast.show("识别失败", detail: error.localizedDescription)
-            }
-        }
-    }
+    func ocr(_ image: CGImage) { onOCR(image) }
 }
