@@ -1,0 +1,33 @@
+name: CruxShot
+options:
+  bundleIdPrefix: com.cruxshot
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  CruxShotKit:
+    path: CruxShotKit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
+targets:
+  CruxShot:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - App
+    dependencies:
+      - package: CruxShotKit
+      - package: Sparkle
+    settings:
+      base:
+        INFOPLIST_FILE: App/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.cruxshot.CruxShot
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: App/CruxShot.entitlements
+        MARKETING_VERSION: "0.1.0"
