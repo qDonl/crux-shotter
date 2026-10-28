@@ -66,19 +66,24 @@ private func colors(_ img: CGImage) -> [RGBColor?] {
 
     @Test func annotationsAreDrawnInPointSpace() {
         let img = makeImage(width: 40, height: 20) { _, _ in white }
-        let a = Annotation(kind: .rect(CGRect(x: 2, y: 2, width: 6, height: 6)),
+        let stroke = RGBColor(r: 255, g: 59, b: 48)
+        // Vertically off-centre (top half) so a vertical flip would move it to the bottom.
+        let a = Annotation(kind: .rect(CGRect(x: 2, y: 1, width: 6, height: 3)),
                            style: AnnotationStyle(color: .red, lineWidth: .medium))
         var item = PinItem(image: img, imageScale: 2, frame: .zero, annotations: [a])
         let plain = item.composedImage()
         #expect(plain.width == 40 && plain.height == 20)
-        // Rect edge at x = 2pt → 4px; far corner untouched.
+        // Left edge at x = 2pt → 4px, spanning y 2...8px (±4px stroke); bottom of that column untouched.
         let s = PixelSampler(image: plain)
-        #expect(s.color(atPixel: 4, 10) == RGBColor(r: 255, g: 59, b: 48))
+        #expect(s.color(atPixel: 4, 4) == stroke)
+        #expect(s.color(atPixel: 4, 15) == white)
         #expect(s.color(atPixel: 38, 18) == white)
         item.transform.rotateCW()
         let rotated = item.composedImage()
         #expect(rotated.width == 20 && rotated.height == 40)
-        // Top-left of source goes to top-right after CW: source pixel (4, 10) → (20-1-10, 4).
-        #expect(PixelSampler(image: rotated).color(atPixel: 9, 4) == RGBColor(r: 255, g: 59, b: 48))
+        // CW maps source pixel (x, y) → (20 - 1 - y, x).
+        let r = PixelSampler(image: rotated)
+        #expect(r.color(atPixel: 15, 4) == stroke)
+        #expect(r.color(atPixel: 4, 4) == white)
     }
 }

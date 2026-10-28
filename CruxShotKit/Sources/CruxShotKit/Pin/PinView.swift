@@ -112,11 +112,13 @@ final class PinView: NSView {
 
     override func scrollWheel(with event: NSEvent) {
         let dy = event.deltaY
-        guard dy != 0 else { return }
+        guard dy != 0, event.momentumPhase.isEmpty else { return }
         if event.modifierFlags.contains(.option) {
             delegate?.pinView(adjustOpacityBy: dy * 0.01)
         } else {
-            delegate?.pinView(zoomBy: 1 + dy * 0.01, anchor: NSEvent.mouseLocation)
+            // Mouse wheels report whole notches; trackpads report small precise deltas.
+            let factor = event.hasPreciseScrollingDeltas ? 1 + dy * 0.01 : pow(1.1, dy)
+            delegate?.pinView(zoomBy: factor, anchor: NSEvent.mouseLocation)
         }
     }
 

@@ -21,7 +21,9 @@ final class PinWindow: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func setFollowsSpaces(_ follows: Bool) {
-        let behavior: NSWindow.CollectionBehavior = follows ? .canJoinAllSpaces : .moveToActiveSpace
+        // Not following: default managed behaviour keeps the pin on the Space it was created on.
+        let behavior: NSWindow.CollectionBehavior = follows
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary] : [.fullScreenAuxiliary]
         if collectionBehavior != behavior { collectionBehavior = behavior }
     }
 }

@@ -33,11 +33,15 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
 
     // MARK: Mapping
 
-    /// Idempotent: only touches what differs from the window's current state.
-    func apply(_ new: PinItem) {
+    /// Idempotent: only touches what differs from the window's current state. While editing,
+    /// the incoming (manager) item is shown upright; see `upright(_:)`.
+    func apply(_ stored: PinItem) {
+        let new = upright(stored)
         let annotationsChanged = new.annotations != item.annotations
+        let shapeChanged = window.frame.size != new.frame.size || new.transform != item.transform
         item = new
         if window.frame != new.frame { window.setFrame(new.frame, display: true) }
+        if shapeChanged { window.invalidateShadow() }
         if window.alphaValue != new.transform.opacity { window.alphaValue = new.transform.opacity }
         if window.ignoresMouseEvents != new.clickThrough { window.ignoresMouseEvents = new.clickThrough }
         window.setFollowsSpaces(new.followsSpaces)
@@ -46,12 +50,40 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         editor?.layout()
     }
 
+    /// `new` is the item as displayed. During editing the manager gets the saved orientation
+    /// (see `persisted(_:)`), so closing mid-edit keeps the pin's rotation/flip.
     private func commit(_ new: PinItem) {
         if let manager = presenter.manager, manager.items.contains(where: { $0.id == new.id }) {
-            manager.update(new)
+            manager.update(persisted(new))
         } else {
             apply(new)
         }
+    }
+
+    /// Displayed (upright, while editing) → stored form with the saved orientation.
+    private func persisted(_ shown: PinItem) -> PinItem {
+        guard let saved = savedOrientation else { return shown }
+        var n = shown
+        n.transform.quarterTurns = saved.quarterTurns
+        n.transform.flippedH = saved.flippedH
+        n.transform.flippedV = saved.flippedV
+        n.frame = resizedAroundCenter(shown.frame, for: n.transform)
+        return n
+    }
+
+    /// Stored → displayed form: upright while editing a rotated/flipped pin, else unchanged.
+    private func upright(_ stored: PinItem) -> PinItem {
+        guard savedOrientation != nil else { return stored }
+        var n = stored
+        n.transform.quarterTurns = 0
+        n.transform.flippedH = false
+        n.transform.flippedV = false
+        n.frame = resizedAroundCenter(stored.frame, for: n.transform)
+        return n
+    }
+
+    private func resizedAroundCenter(_ frame: CGRect, for t: PinTransform) -> CGRect {
+        PinGeometry.zoomedFrame(frame, to: t.displaySize(for: pointSize), anchor: CGPoint(x: frame.midX, y: frame.midY))
     }
 
     func teardown() {
@@ -115,8 +147,10 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
     private func beginEditing() {
         guard editor == nil else { return }
         if PinGeometry.hasOrientation(item.transform) {
-            savedOrientation = item.transform
-            reshape { $0.quarterTurns = 0; $0.flippedH = false; $0.flippedV = false }
+            // Upright only locally; the manager keeps the real orientation.
+            let stored = item
+            savedOrientation = stored.transform
+            apply(stored)
         }
         window.isMovableByWindowBackground = false
         view.image = item.image // annotations are drawn by the canvas while editing
@@ -130,18 +164,10 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         editor = nil
         let annotations = e.finish()
         window.isMovableByWindowBackground = true
-        var n = item
+        var n = persisted(item)
+        savedOrientation = nil
         n.annotations = annotations
         view.image = n.annotatedImage()
-        if let saved = savedOrientation {
-            savedOrientation = nil
-            n.transform.quarterTurns = saved.quarterTurns
-            n.transform.flippedH = saved.flippedH
-            n.transform.flippedV = saved.flippedV
-            let f = window.frame
-            n.frame = PinGeometry.zoomedFrame(f, to: n.transform.displaySize(for: pointSize),
-                                              anchor: CGPoint(x: f.midX, y: f.midY))
-        }
         commit(n)
     }
 
