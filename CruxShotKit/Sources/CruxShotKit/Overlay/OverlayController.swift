@@ -358,6 +358,8 @@ public final class OverlayController {
             preferences.mosaicMode = mode
             canvas?.mosaicMode = mode
             updateToolbar()
+        case .done:
+            break
         }
     }
 

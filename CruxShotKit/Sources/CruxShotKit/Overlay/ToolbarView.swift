@@ -7,6 +7,8 @@ enum ToolbarCommand {
     case color(PaletteColor)
     case lineWidth(LineWidth)
     case mosaicMode(MosaicMode)
+    /// Pin-edit toolbar only: finish editing.
+    case done
 }
 
 /// Annotation toolbar shown under the selection. Row 1: tools | undo redo | ocr pin save copy.
@@ -14,6 +16,9 @@ enum ToolbarCommand {
 @MainActor
 final class ToolbarView: NSView {
     static let buttonSide: CGFloat = 28
+
+    /// `.overlay`: full capture toolbar. `.pinEdit`: drawing tools, undo/redo and a done button.
+    enum Variant { case overlay, pinEdit }
 
     var onCommand: ((ToolbarCommand) -> Void)?
 
@@ -35,7 +40,7 @@ final class ToolbarView: NSView {
     private let styleRow = NSStackView()
     private let mosaicRow = NSStackView()
 
-    init() {
+    init(variant: Variant = .overlay) {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor(white: 0.12, alpha: 0.94).cgColor
@@ -51,12 +56,19 @@ final class ToolbarView: NSView {
         undoButton = button("arrow.uturn.backward", "撤销 (⌘Z)", .undo)
         redoButton = button("arrow.uturn.forward", "重做 (⇧⌘Z)", .redo)
         row1 += [undoButton, redoButton, Self.separator()]
-        row1 += [
-            button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr),
-            button("pin", "贴图 (⌘T)", .pin),
-            button("square.and.arrow.down", "保存 (⌘S)", .save),
-            button("checkmark", "复制 (↩)", .copy),
-        ]
+        switch variant {
+        case .overlay:
+            row1 += [
+                button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr),
+                button("pin", "贴图 (⌘T)", .pin),
+                button("square.and.arrow.down", "保存 (⌘S)", .save),
+                button("checkmark", "复制 (↩)", .copy),
+            ]
+        case .pinEdit:
+            row1.append(ToolbarButton(symbol: "checkmark", tooltip: "完成 (↩)") { [weak self] in
+                self?.onCommand?(.done)
+            })
+        }
 
         for color in PaletteColor.allCases {
             let b = ToolbarButton(image: Self.swatch(color), tooltip: color.rawValue) { [weak self] in

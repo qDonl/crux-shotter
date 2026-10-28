@@ -13,9 +13,11 @@ public final class AnnotationDocument: ObservableObject {
     private var undoStack: [[Annotation]] = []
     private var redoStack: [[Annotation]] = []
 
-    public init(image: CGImage, scale: CGFloat) {
+    /// `annotations` are the starting content (not undoable), e.g. when re-editing a pin.
+    public init(image: CGImage, scale: CGFloat, annotations: [Annotation] = []) {
         self.image = image
         self.scale = scale
+        self.annotations = annotations
     }
 
     public var pointSize: CGSize {
