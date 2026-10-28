@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - name: Check signing secrets
+        id: secrets
+        env:
+          CERT: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+        run: |
+          if [ -n "$CERT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Signing secrets are not configured; skipping the release build."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.configured == 'true'
+
+      - name: Install tools
+        if: steps.secrets.outputs.configured == 'true'
+        run: brew install xcodegen
+
+      - name: Import signing certificate
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Test
+        if: steps.secrets.outputs.configured == 'true'
+        run: swift test --package-path CruxShotKit
+
+      - name: Build, sign and notarize
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: scripts/build-release.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Generate appcast
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData build -path '*artifacts/sparkle/Sparkle/bin' -type d 2>/dev/null | head -1)"
+          [ -n "$SPARKLE_BIN" ] || { echo "Sparkle tools not found"; exit 1; }
+          mkdir -p build/appcast
+          cp build/CruxShotter-*.dmg build/appcast/
+          echo "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_BIN/generate_appcast" --ed-key-file - \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            build/appcast
+
+      - name: Create GitHub release
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --generate-notes \
+            build/CruxShotter-*.dmg build/appcast/appcast.xml
