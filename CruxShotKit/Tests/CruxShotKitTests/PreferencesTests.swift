@@ -51,3 +51,19 @@ import KeyboardShortcuts
     #expect(KeyboardShortcuts.Name.togglePins.defaultShortcut == .init(.h, modifiers: [.control, .shift]))
     #expect(KeyboardShortcuts.Name.restorePin.defaultShortcut == .init(.z, modifiers: [.control, .shift]))
 }
+
+@MainActor
+@Test func menuBarIconStyleDefaultsAndPersists() {
+    let ud = UserDefaults(suiteName: UUID().uuidString)!
+    #expect(Preferences(defaults: ud).menuBarIconStyle == .monogram)
+    Preferences(defaults: ud).menuBarIconStyle = .scissors
+    #expect(Preferences(defaults: ud).menuBarIconStyle == .scissors)
+    ud.set("bogus", forKey: "cruxshot.menuBarIconStyle")
+    #expect(Preferences(defaults: ud).menuBarIconStyle == .monogram)
+}
+
+@Test func menuBarIconStyleAssetNames() {
+    #expect(MenuBarIconStyle.allCases == [.monogram, .scissors])
+    #expect(MenuBarIconStyle.monogram.assetName == "MenuBarIconC")
+    #expect(MenuBarIconStyle.scissors.assetName == "MenuBarIconScissors")
+}

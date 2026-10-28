@@ -37,6 +37,9 @@ public final class Preferences: ObservableObject {
     @Published public var mosaicMode: MosaicMode {
         didSet { defaults.set(mosaicMode.rawValue, forKey: Key.mosaicMode) }
     }
+    @Published public var menuBarIconStyle: MenuBarIconStyle {
+        didSet { defaults.set(menuBarIconStyle.rawValue, forKey: Key.menuBarIconStyle) }
+    }
 
     private enum Key {
         static let saveDirectory = "cruxshot.saveDirectory"
@@ -46,6 +49,7 @@ public final class Preferences: ObservableObject {
         static let lastLineWidth = "cruxshot.lastLineWidth"
         static let colorFormat = "cruxshot.colorFormat"
         static let mosaicMode = "cruxshot.mosaicMode"
+        static let menuBarIconStyle = "cruxshot.menuBarIconStyle"
     }
 
     public init(defaults: UserDefaults) {
@@ -62,5 +66,7 @@ public final class Preferences: ObservableObject {
             .flatMap { LineWidth(rawValue: CGFloat($0)) } ?? .medium
         colorFormat = defaults.string(forKey: Key.colorFormat).flatMap(ColorFormat.init(rawValue:)) ?? .hex
         mosaicMode = defaults.string(forKey: Key.mosaicMode).flatMap(MosaicMode.init(rawValue:)) ?? .pixelate
+        menuBarIconStyle = defaults.string(forKey: Key.menuBarIconStyle)
+            .flatMap(MenuBarIconStyle.init(rawValue:)) ?? .monogram
     }
 }

@@ -48,6 +48,17 @@ private struct GeneralTab: View {
                      + "." + preferences.imageFormat.rawValue)
                     .foregroundStyle(.secondary)
             }
+            Picker("菜单栏图标", selection: $preferences.menuBarIconStyle) {
+                ForEach(MenuBarIconStyle.allCases, id: \.self) { style in
+                    Label {
+                        Text(style.title)
+                    } icon: {
+                        if let image = NSImage(named: style.assetName) { Image(nsImage: image) }
+                    }
+                    .tag(style)
+                }
+            }
+            .pickerStyle(.radioGroup)
         }
         .padding(20)
     }

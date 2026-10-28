@@ -18,6 +18,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let conflictDot = NSView()
     private var conflictsObserver: AnyCancellable?
+    private var iconObserver: AnyCancellable?
 
     private let restoreItem = NSMenuItem(title: "恢复关闭的贴图", action: #selector(restorePin), keyEquivalent: "")
     private let closeAllItem = NSMenuItem(title: "关闭全部贴图", action: #selector(closeAllPins), keyEquivalent: "")
@@ -41,10 +42,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func setUpButton() {
         guard let button = statusItem.button else { return }
-        let image = NSImage(named: "MenuBarIcon")
-        image?.isTemplate = true
-        image?.accessibilityDescription = "CruxShotter"
-        button.image = image
+        iconObserver = Preferences.shared.$menuBarIconStyle.sink { [weak button] style in
+            let image = NSImage(named: style.assetName)
+            image?.isTemplate = true
+            image?.accessibilityDescription = "CruxShotter"
+            button?.image = image
+        }
         button.toolTip = "CruxShotter"
 
         conflictDot.wantsLayer = true
