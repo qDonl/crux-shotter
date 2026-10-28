@@ -1,5 +1,5 @@
 cask "crux-shotter" do
-  version "0.0.1"
+  version "0.0.1-alpha"
   sha256 "REPLACE_WITH_DMG_SHA256"
 
   url "https://github.com/qDonl/crux-shotter/releases/download/v#{version}/CruxShotter-#{version}.dmg"

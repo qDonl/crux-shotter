@@ -10,11 +10,17 @@
 #               APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD in the environment.
 set -euo pipefail
 
-VERSION="${1:-}"
+usage() { echo "usage: $0 <version> [--skip-sign]" >&2; exit 64; }
+
+[[ $# -ge 1 && $# -le 2 ]] || usage
+VERSION="$1"
 SKIP_SIGN=0
-[[ "${2:-}" == "--skip-sign" ]] && SKIP_SIGN=1
-if [[ -z "$VERSION" || "$VERSION" == --* ]]; then
-  echo "usage: $0 <version> [--skip-sign]" >&2
+if [[ $# -eq 2 ]]; then
+  [[ "$2" == "--skip-sign" ]] || usage
+  SKIP_SIGN=1
+fi
+if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "error: invalid version '$VERSION' (expected e.g. 0.0.1 or 0.0.1-alpha)" >&2
   exit 64
 fi
 
@@ -30,6 +36,7 @@ DMG="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
 STAGING="$BUILD_DIR/dmg-staging"
 VERSION_SETTINGS=(MARKETING_VERSION="$NUMERIC_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
 
+trap 'rm -rf "$STAGING"' EXIT
 rm -rf "$BUILD_DIR/release" "$STAGING" "$DMG"
 mkdir -p "$BUILD_DIR/release"
 
@@ -49,12 +56,15 @@ else
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>developer-id</string>
-  <key>signingStyle</key><string>automatic</string>
-  <key>teamID</key><string>${APPLE_TEAM_ID:-}</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Developer ID Application</string>
+  <key>teamID</key><string>${APPLE_TEAM_ID:?}</string>
 </dict></plist>
 PLIST
   xcodebuild -project CruxShot.xcodeproj -scheme "$SCHEME" -configuration Release \
-    -archivePath "$ARCHIVE" "${VERSION_SETTINGS[@]}" archive
+    -archivePath "$ARCHIVE" \
+    CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="${APPLE_TEAM_ID:?}" \
+    "${VERSION_SETTINGS[@]}" archive
   xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "$BUILD_DIR/release/ExportOptions.plist"
   APP="$EXPORT_DIR/$APP_NAME.app"

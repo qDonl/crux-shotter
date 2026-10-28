@@ -26,7 +26,7 @@ brew install --cask crux-shotter
 (`--skip-sign` gives an ad-hoc signed, non-notarized build). Pushing a `v*` tag runs
 `.github/workflows/release.yml`, which signs, notarizes and publishes the DMG plus `appcast.xml`; without the
 signing secrets (`DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID`,
-`APPLE_APP_PASSWORD`) it only emits a notice. After publishing, update `version` and `sha256` in
+`APPLE_APP_PASSWORD`) it only emits a notice. After publishing, update `version` (the tag minus the leading `v`, e.g. `0.0.1-alpha`) and `sha256` in
 `Casks/crux-shotter.rb`.
 
 ### Auto-update (Sparkle)
