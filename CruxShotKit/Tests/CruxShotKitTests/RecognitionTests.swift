@@ -62,3 +62,9 @@ private func qrImage(_ text: String) -> CGImage {
     #expect(["你好", "world"].joinedAsSingleLine == "你好 world")
     #expect(["a", "b"].joinedAsLines == "a\nb")
 }
+
+@MainActor @Test func ocrPanelSingleLineDropsBlankLinesAndJoinsCJK() {
+    #expect(OCRResultPanel.singleLine(from: "Hello\n\n  world  \n") == "Hello world")
+    #expect(OCRResultPanel.singleLine(from: "你好\n世界\r\nok") == "你好世界 ok")
+    #expect(OCRResultPanel.singleLine(from: "") == "")
+}

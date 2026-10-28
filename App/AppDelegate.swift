@@ -1,72 +1,72 @@
 import AppKit
+import SwiftUI
 import CruxShotKit
-import OSLog
+import KeyboardShortcuts
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let logger = Logger(subsystem: "com.cruxshot", category: "App")
-    private var statusItem: NSStatusItem?
-    /// Debug-only capture flow; Task 15 replaces it with the real capture coordinator.
-    private var debugOverlay: OverlayController?
+    private static let onboardingShownKey = "cruxshot.onboardingShown"
+    private static let allShortcuts: [KeyboardShortcuts.Name] = [
+        .captureArea, .captureFullScreen, .captureOCR, .pinClipboard, .togglePins, .restorePin,
+    ]
+
+    private var coordinator: AppCoordinator?
+    private var statusController: StatusItemController?
+    private let onboarding = OnboardingWindow()
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "CruxShot")
+        let presenter = PinWindowPresenter()
+        let pins = PinManager(presenter: presenter)
+        presenter.manager = pins
 
-        let menu = NSMenu()
-        let debugItem = NSMenuItem(title: "截图（调试）", action: #selector(debugCapture), keyEquivalent: "")
-        debugItem.target = self
-        menu.addItem(debugItem)
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 CruxShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        item.menu = menu
-        statusItem = item
-    }
+        let coordinator = AppCoordinator(capture: ScreenCaptureService(), preferences: .shared, pins: pins)
+        coordinator.showOnboarding = { [onboarding] in onboarding.show() }
+        presenter.onSave = { [weak coordinator] image in coordinator?.save(image) }
+        presenter.onOCR = { [weak coordinator] image in coordinator?.recognizeToClipboard(image) }
+        self.coordinator = coordinator
 
-    // TODO(Task 15): remove this debug entry point.
-    @objc private func debugCapture() {
-        guard debugOverlay == nil else { return }
-        CaptureSignpost.begin()
-        Task { @MainActor in
-            let snapshot: CaptureSnapshot
-            do {
-                snapshot = try await ScreenCaptureService().snapshot()
-            } catch CaptureError.permissionDenied {
-                CaptureSignpost.end()
-                Self.logger.error("debug capture: screen recording permission denied")
-                print("CruxShot: screen recording permission denied")
-                return
-            } catch {
-                CaptureSignpost.end()
-                Self.logger.error("debug capture failed: \(String(describing: error))")
-                return
-            }
-            let controller = OverlayController(snapshot: snapshot, mode: .annotate, preferences: .shared)
-            debugOverlay = controller
-            controller.present { [weak self] result in
-                self?.debugOverlay = nil
-                Self.logDebugResult(result)
-            }
+        onboarding.willRelaunch = { KeyboardShortcuts.disable(Self.allShortcuts) }
+        onboarding.relaunchFailed = { KeyboardShortcuts.enable(Self.allShortcuts) }
+
+        // Probe before adding listeners; re-probes whenever a shortcut changes.
+        ShortcutConflicts.shared.monitor(Self.allShortcuts)
+        registerShortcuts(coordinator)
+
+        statusController = StatusItemController(coordinator: coordinator, presenter: presenter,
+                                                conflicts: .shared,
+                                                openSettings: { [weak self] in self?.showSettings() })
+
+        let defaults = UserDefaults.standard
+        if !ScreenCapturePermission.isGranted, !defaults.bool(forKey: Self.onboardingShownKey) {
+            defaults.set(true, forKey: Self.onboardingShownKey)
+            onboarding.show()
         }
     }
 
-    private static func logDebugResult(_ result: OverlayResult) {
-        switch result {
-        case .cancelled:
-            logger.info("debug capture result: cancelled")
-        case .copy(let image):
-            ClipboardWriter.write(image: image)
-            logger.info("debug capture result: copy \(image.width)x\(image.height)")
-            Toast.show("已复制到剪贴板", detail: "\(image.width) × \(image.height)")
-        case .save(let image):
-            logger.info("debug capture result: save \(image.width)x\(image.height)")
-        case .pin(let image, let frame):
-            logger.info("debug capture result: pin \(image.width)x\(image.height) at \(String(describing: frame))")
-        case .ocr(let image):
-            logger.info("debug capture result: ocr \(image.width)x\(image.height)")
-        case .copiedColor(let color):
-            logger.info("debug capture result: copiedColor \(color)")
-            Toast.show("已复制颜色", detail: color)
-        }
+    private func registerShortcuts(_ c: AppCoordinator) {
+        KeyboardShortcuts.onKeyUp(for: .captureArea) { [weak c] in c?.captureArea() }
+        KeyboardShortcuts.onKeyUp(for: .captureFullScreen) { [weak c] in c?.captureFullScreen() }
+        KeyboardShortcuts.onKeyUp(for: .captureOCR) { [weak c] in c?.captureOCR() }
+        KeyboardShortcuts.onKeyUp(for: .pinClipboard) { [weak c] in c?.pinClipboard() }
+        KeyboardShortcuts.onKeyUp(for: .togglePins) { [weak c] in c?.togglePins() }
+        KeyboardShortcuts.onKeyUp(for: .restorePin) { [weak c] in c?.restorePin() }
+    }
+
+    /// Own window rather than the SwiftUI `Settings` scene: opening that scene from an accessory
+    /// (LSUIElement) app is unreliable on macOS 14.
+    private func showSettings() {
+        let window = settingsWindow ?? {
+            let view = SettingsView(preferences: .shared, checkForUpdates: {})
+            let w = NSWindow(contentViewController: NSHostingController(rootView: view))
+            w.title = "CruxShotter 设置"
+            w.styleMask = [.titled, .closable]
+            w.isReleasedWhenClosed = false
+            w.center()
+            return w
+        }()
+        settingsWindow = window
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
     }
 }

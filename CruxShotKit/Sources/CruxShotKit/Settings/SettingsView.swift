@@ -62,16 +62,27 @@ private struct GeneralTab: View {
 }
 
 private struct ShortcutsTab: View {
+    @ObservedObject private var conflicts = ShortcutConflicts.shared
+
     var body: some View {
         Form {
-            KeyboardShortcuts.Recorder("区域截图", name: .captureArea)
-            KeyboardShortcuts.Recorder("全屏截图", name: .captureFullScreen)
-            KeyboardShortcuts.Recorder("OCR 截图", name: .captureOCR)
-            KeyboardShortcuts.Recorder("剪贴板贴图", name: .pinClipboard)
-            KeyboardShortcuts.Recorder("显示/隐藏贴图", name: .togglePins)
-            KeyboardShortcuts.Recorder("恢复关闭的贴图", name: .restorePin)
+            row("区域截图", .captureArea)
+            row("全屏截图", .captureFullScreen)
+            row("OCR 截图", .captureOCR)
+            row("剪贴板贴图", .pinClipboard)
+            row("显示/隐藏贴图", .togglePins)
+            row("恢复关闭的贴图", .restorePin)
         }
         .padding(20)
+    }
+
+    private func row(_ title: String, _ name: KeyboardShortcuts.Name) -> some View {
+        HStack {
+            KeyboardShortcuts.Recorder(title, name: name)
+            if conflicts.isConflicted(name) {
+                Text("与其他应用冲突").font(.caption).foregroundStyle(.red)
+            }
+        }
     }
 }
 

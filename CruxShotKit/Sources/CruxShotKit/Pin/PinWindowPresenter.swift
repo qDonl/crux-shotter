@@ -39,6 +39,12 @@ public final class PinWindowPresenter: PinPresenting {
         }
     }
 
+    /// Orders the pin's window to the front without activating the app.
+    public func bringToFront(id: PinItem.ID) {
+        guard !isHidden else { return }
+        controllers[id]?.window.orderFrontRegardless()
+    }
+
     // MARK: Actions from windows
 
     func requestClose(id: PinItem.ID) {
