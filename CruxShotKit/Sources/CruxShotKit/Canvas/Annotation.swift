@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import AppKit
 
 public enum PaletteColor: String, CaseIterable, Sendable {
     case red, orange, yellow, green, blue, black
@@ -64,6 +65,9 @@ public struct Annotation: Identifiable, Sendable, Equatable {
         self.style = style
     }
 
+    /// Counter circle diameter as a multiple of fontSize; shared by renderer and hit testing.
+    public static let counterDiameterFactor: CGFloat = 2.2
+
     public func translated(by v: CGVector) -> Annotation {
         func p(_ pt: CGPoint) -> CGPoint { CGPoint(x: pt.x + v.dx, y: pt.y + v.dy) }
         var copy = self
@@ -92,7 +96,7 @@ public struct Annotation: Identifiable, Sendable, Equatable {
             let w = max(size.width, 1) * style.fontSize / 12
             return CGRect(x: o.x, y: o.y, width: w, height: style.fontSize * 1.3)
         case .counter(let c, _):
-            let radius = max(style.fontSize * 0.8, 12)
+            let radius = Self.counterDiameterFactor * style.fontSize / 2
             return CGRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2)
         }
     }
