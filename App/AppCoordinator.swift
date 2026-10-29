@@ -62,26 +62,40 @@ final class AppCoordinator {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         let scale = screen?.backingScaleFactor ?? 2
-        let image: CGImage
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let images: [CGImage]
         switch ClipboardContent.read(from: .general) {
         case .image(let cg):
-            image = cg
+            images = [cg]
+        case .imageFiles(let urls):
+            images = urls.prefix(ClipboardContent.maxImageFiles).compactMap { ImageFileLoader.load($0, scale: scale) }
+            if images.isEmpty {
+                Toast.show("无法读取复制的图片文件")
+                return
+            }
+            if urls.count > ClipboardContent.maxImageFiles {
+                Toast.show("一次最多贴 \(ClipboardContent.maxImageFiles) 张图片", detail: "已贴出前 \(images.count) 张")
+            }
+        case .color(let color):
+            images = [ColorCardRenderer.render(color, dark: dark, scale: scale)]
+        case .richText(let text):
+            images = [TextCardRenderer.renderRich(text, scale: scale)]
         case .text(let text):
-            let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            image = TextCardRenderer.render(text, dark: dark, scale: scale)
+            images = [TextCardRenderer.render(text, dark: dark, scale: scale)]
         case .none:
             Toast.show("剪贴板没有可贴的内容")
             return
         }
-        let size = CGSize(width: CGFloat(image.width) / scale, height: CGFloat(image.height) / scale)
-        var frame = CGRect(x: mouse.x - size.width / 2, y: mouse.y - size.height / 2,
-                           width: size.width, height: size.height)
-        if let visible = screen?.visibleFrame {
-            frame.origin.x = min(max(frame.minX, visible.minX), max(visible.minX, visible.maxX - size.width))
-            frame.origin.y = min(max(frame.minY, visible.minY), max(visible.minY, visible.maxY - size.height))
+        let visible = screen?.visibleFrame
+        let scales = images.map { image in
+            PinGeometry.fittingScale(pixelSize: CGSize(width: image.width, height: image.height), baseScale: scale,
+                                     within: visible?.size ?? .zero)
         }
-        frame.origin = CGPoint(x: frame.minX.rounded(), y: frame.minY.rounded())
-        pins.add(PinItem(image: image, imageScale: scale, frame: frame))
+        let sizes = zip(images, scales).map { PinGeometry.pointSize(of: $0, scale: $1) }
+        let frames = PinGeometry.cascadeFrames(sizes: sizes, around: mouse, visible: visible)
+        for (i, image) in images.enumerated() {
+            pins.add(PinItem(image: image, imageScale: scales[i], frame: frames[i]))
+        }
     }
 
     func togglePins() {

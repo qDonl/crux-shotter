@@ -21,6 +21,31 @@ public enum PinGeometry {
         return CGSize(width: CGFloat(image.width) / s, height: CGFloat(image.height) / s)
     }
 
+    /// Backing scale that keeps an image within `fraction` of `screen` (points); never below
+    /// `baseScale`, so small images show at their natural size and pixels are never discarded.
+    public static func fittingScale(pixelSize: CGSize, baseScale: CGFloat, within screen: CGSize,
+                                    fraction: CGFloat = 0.8) -> CGFloat {
+        guard screen.width > 0, screen.height > 0 else { return baseScale }
+        return max(baseScale, pixelSize.width / (screen.width * fraction), pixelSize.height / (screen.height * fraction))
+    }
+
+    /// Frames for pins created together: the first centered on `point`, each next one `step`
+    /// further down-right, all clamped into `visible` and rounded to whole points.
+    public static func cascadeFrames(sizes: [CGSize], around point: CGPoint, visible: CGRect?,
+                                     step: CGFloat = 24) -> [CGRect] {
+        sizes.enumerated().map { i, size in
+            var frame = CGRect(x: point.x - size.width / 2 + step * CGFloat(i),
+                               y: point.y - size.height / 2 - step * CGFloat(i),
+                               width: size.width, height: size.height)
+            if let visible {
+                frame.origin.x = min(max(frame.minX, visible.minX), max(visible.minX, visible.maxX - size.width))
+                frame.origin.y = min(max(frame.minY, visible.minY), max(visible.minY, visible.maxY - size.height))
+            }
+            frame.origin = CGPoint(x: frame.minX.rounded(), y: frame.minY.rounded())
+            return frame
+        }
+    }
+
     /// Maps the rect `(0, 0, size)` of the upright image onto the oriented output rect, in a
     /// y-up coordinate system: first `quarterTurns` clockwise rotations, then flips in the
     /// rotated (on-screen) space, so H always mirrors left/right as seen.
