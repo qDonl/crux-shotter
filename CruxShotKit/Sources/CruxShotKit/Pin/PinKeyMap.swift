@@ -30,3 +30,32 @@ public enum PinKeyMap {
         }
     }
 }
+
+/// What a key does while a pin is being edited; mirrors the capture editor's shortcuts.
+public enum PinEditAction: Equatable {
+    /// ↩ / ✓: keep the changes. Esc: discard everything since editing began.
+    case done, cancel, undo, redo, copy, save, ocr
+    case toggleTool(CanvasTool)
+}
+
+public enum PinEditKeyMap {
+    private static let toolKeys: [String: CanvasTool] = [
+        "r": .rect, "a": .arrow, "p": .pen, "t": .text, "n": .counter, "m": .mosaic,
+    ]
+
+    public static func action(characters: String?, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> PinEditAction? {
+        let mods = modifiers.intersection([.command, .shift, .option, .control])
+        if keyCode == 53 { return .cancel }
+        if mods.isEmpty, keyCode == 36 || keyCode == 76 { return .done }
+        let ch = characters?.lowercased()
+        switch (mods, ch) {
+        case (.command, "z"): return .undo
+        case ([.command, .shift], "z"): return .redo
+        case (.command, "c"): return .copy
+        case (.command, "s"): return .save
+        case ([.command, .shift], "c"): return .ocr
+        case ([], let c?): return toolKeys[c].map { .toggleTool($0) }
+        default: return nil
+        }
+    }
+}

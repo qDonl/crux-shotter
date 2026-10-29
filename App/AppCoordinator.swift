@@ -169,9 +169,10 @@ final class AppCoordinator {
             Toast.show("已复制", detail: "\(image.width) × \(image.height)")
         case .save(let image):
             save(image)
-        case .pin(let image, let globalFrame):
+        case .pin(let image, let annotations, let globalFrame):
             guard globalFrame.width > 0 else { return }
-            pins.add(PinItem(image: image, imageScale: CGFloat(image.width) / globalFrame.width, frame: globalFrame))
+            pins.add(PinItem(image: image, imageScale: CGFloat(image.width) / globalFrame.width, frame: globalFrame,
+                             annotations: annotations))
         case .ocr(let image):
             recognizeToPanel(image)
         case .copiedColor(let color):

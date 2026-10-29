@@ -7,7 +7,8 @@ public enum OverlayResult {
     case cancelled
     case copy(CGImage)
     case save(CGImage)
-    case pin(CGImage, globalFrame: CGRect)
+    /// The unannotated crop plus its annotations, so the pin can keep editing them.
+    case pin(CGImage, annotations: [Annotation], globalFrame: CGRect)
     case ocr(CGImage)
     case copiedColor(String)
 }
@@ -275,7 +276,7 @@ public final class OverlayController {
         switch action {
         case .copy: finish(.copy(image))
         case .save: finish(.save(image))
-        case .pin: finish(.pin(image, globalFrame: cropGlobalRect))
+        case .pin: finish(.pin(document.image, annotations: document.annotations, globalFrame: cropGlobalRect))
         case .ocr: finish(.ocr(image))
         default: break
         }

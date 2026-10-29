@@ -17,7 +17,7 @@ enum ToolbarCommand {
 final class ToolbarView: NSView {
     static let buttonSide: CGFloat = 28
 
-    /// `.overlay`: full capture toolbar. `.pinEdit`: drawing tools, undo/redo and a done button.
+    /// `.overlay`: full capture toolbar. `.pinEdit`: the same tools and OCR/save/copy, then a done button.
     enum Variant { case overlay, pinEdit }
 
     var onCommand: ((ToolbarCommand) -> Void)?
@@ -65,9 +65,14 @@ final class ToolbarView: NSView {
                 button("checkmark", "复制 (↩)", .copy),
             ]
         case .pinEdit:
-            row1.append(ToolbarButton(symbol: "checkmark", tooltip: "完成 (↩)") { [weak self] in
-                self?.onCommand?(.done)
-            })
+            row1 += [
+                button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr),
+                button("square.and.arrow.down", "保存 (⌘S)", .save),
+                button("doc.on.doc", "复制 (⌘C)", .copy),
+                ToolbarButton(symbol: "checkmark", tooltip: "完成 (↩)，Esc 放弃本次修改") { [weak self] in
+                    self?.onCommand?(.done)
+                },
+            ]
         }
 
         for color in PaletteColor.allCases {

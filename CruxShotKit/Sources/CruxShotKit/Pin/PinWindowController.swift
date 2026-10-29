@@ -155,20 +155,26 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         window.isMovableByWindowBackground = false
         view.image = item.image // annotations are drawn by the canvas while editing
         let e = PinEditor(item: item, host: view)
-        e.onDone = { [weak self] in self?.endEditing() }
+        e.onExit = { [weak self] in self?.endEditing($0) }
         editor = e
     }
 
-    private func endEditing() {
+    private func endEditing(_ exit: PinEditExit) {
         guard let e = editor else { return }
         editor = nil
         let annotations = e.finish()
         window.isMovableByWindowBackground = true
         var n = persisted(item)
         savedOrientation = nil
-        n.annotations = annotations
+        if exit != .discard { n.annotations = annotations }
         view.image = n.annotatedImage()
         commit(n)
+        switch exit {
+        case .keep, .discard: break
+        case .copy: perform(.copy)
+        case .save: perform(.save)
+        case .ocr: presenter.ocr(item.composedImage())
+        }
     }
 
     // MARK: NSWindowDelegate
@@ -200,6 +206,8 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         guard editor == nil else { return nil }
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.addItem(PinMenuAction.item("编辑标注 (E)") { [weak self] in self?.perform(.edit) })
+        menu.addItem(.separator())
         menu.addItem(PinMenuAction.item("复制") { [weak self] in self?.perform(.copy) })
         menu.addItem(PinMenuAction.item("保存") { [weak self] in self?.perform(.save) })
         menu.addItem(PinMenuAction.item("识别文字") { [weak self] in

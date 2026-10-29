@@ -86,4 +86,22 @@ private func colors(_ img: CGImage) -> [RGBColor?] {
         #expect(r.color(atPixel: 15, 4) == stroke)
         #expect(r.color(atPixel: 4, 4) == white)
     }
+
+    /// Capture → pin now hands over the plain crop plus annotations; the pin must still copy
+    /// exactly what the capture editor would have exported.
+    @MainActor @Test func pinWithAnnotationsMatchesCaptureExport() {
+        let img = makeImage(width: 40, height: 20) { x, _ in RGBColor(r: UInt8(x * 6), g: 100, b: 200) }
+        let annotations = [
+            Annotation(kind: .rect(CGRect(x: 2, y: 1, width: 6, height: 3)), style: AnnotationStyle(color: .red, lineWidth: .medium)),
+            Annotation(kind: .counter(center: CGPoint(x: 14, y: 5), number: 1), style: AnnotationStyle(color: .blue, lineWidth: .thin)),
+        ]
+        let doc = AnnotationDocument(image: img, scale: 2, annotations: annotations)
+        let exported = PixelSampler(image: AnnotationRenderer.render(doc))
+        let pinned = PixelSampler(image: PinItem(image: img, imageScale: 2, frame: .zero, annotations: annotations).composedImage())
+        for y in 0..<20 {
+            for x in 0..<40 {
+                #expect(exported.color(atPixel: x, y) == pinned.color(atPixel: x, y), "(\(x), \(y))")
+            }
+        }
+    }
 }

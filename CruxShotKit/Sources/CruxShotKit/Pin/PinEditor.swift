@@ -1,7 +1,11 @@
 import AppKit
 
-/// In-place annotation editing on a pin: a `CanvasView` over the pin view plus a compact
-/// toolbar (drawing tools, undo/redo, done) in a child panel under the pin window.
+/// How an editing session ends. `.discard` restores the annotations from before editing;
+/// the others keep the changes, and copy/save/OCR then act on the result.
+enum PinEditExit { case keep, discard, copy, save, ocr }
+
+/// In-place annotation editing on a pin: a `CanvasView` over the pin view plus the capture
+/// editor's toolbar (tools, undo/redo, OCR/save/copy, done) in a child panel under the pin window.
 @MainActor
 final class PinEditor {
     static let toolbarGap: CGFloat = 8
@@ -12,11 +16,7 @@ final class PinEditor {
     private let toolbarPanel: NSPanel
     private weak var host: PinView?
     private let preferences: Preferences
-    var onDone: (() -> Void)?
-
-    private static let toolKeys: [String: CanvasTool] = [
-        "r": .rect, "a": .arrow, "p": .pen, "t": .text, "n": .counter, "m": .mosaic,
-    ]
+    var onExit: ((PinEditExit) -> Void)?
 
     init(item: PinItem, host: PinView, preferences: Preferences = .shared) {
         self.host = host
@@ -77,21 +77,20 @@ final class PinEditor {
 
     /// Keys that reach the pin view while editing (the canvas handles Delete and deselect).
     func handleKey(_ event: NSEvent) -> Bool {
-        let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        let ch = event.charactersIgnoringModifiers?.lowercased()
-        switch (event.keyCode, mods, ch) {
-        case (53, _, _), (36, [], _), (76, [], _):
-            onDone?()
-        case (_, .command, "z"):
-            document.undo(); updateToolbar()
-        case (_, [.command, .shift], "z"):
-            document.redo(); updateToolbar()
-        case (_, [], let c?) where Self.toolKeys[c] != nil:
-            let tool = Self.toolKeys[c]!
+        guard let action = PinEditKeyMap.action(characters: event.charactersIgnoringModifiers,
+                                                keyCode: event.keyCode, modifiers: event.modifierFlags)
+        else { return false }
+        switch action {
+        case .done: onExit?(.keep)
+        case .cancel: onExit?(.discard)
+        case .copy: onExit?(.copy)
+        case .save: onExit?(.save)
+        case .ocr: onExit?(.ocr)
+        case .undo: document.undo(); updateToolbar()
+        case .redo: document.redo(); updateToolbar()
+        case .toggleTool(let tool):
             canvas.tool = canvas.tool == tool ? nil : tool
             updateToolbar()
-        default:
-            return false
         }
         return true
     }
@@ -104,6 +103,9 @@ final class PinEditor {
         switch command {
         case .action(.undo): document.undo()
         case .action(.redo): document.redo()
+        case .action(.copy): onExit?(.copy); return
+        case .action(.save): onExit?(.save); return
+        case .action(.ocr): onExit?(.ocr); return
         case .action: break
         case .toggleTool(let tool): canvas.tool = canvas.tool == tool ? nil : tool
         case .color(let color):
@@ -116,7 +118,7 @@ final class PinEditor {
             preferences.mosaicMode = mode
             canvas.mosaicMode = mode
         case .done:
-            onDone?()
+            onExit?(.keep)
             return
         }
         updateToolbar()
