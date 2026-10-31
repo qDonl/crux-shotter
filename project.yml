@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.0.2"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "0.0.3"
+    CURRENT_PROJECT_VERSION: "3"
     CRUXSHOT_GITHUB_REPO: qDonl/crux-shotter
     # Sparkle EdDSA public key (from `generate_keys`); empty disables in-app updates.
     SPARKLE_PUBLIC_KEY: ""
@@ -35,4 +35,4 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_ENTITLEMENTS: App/CruxShot.entitlements
-        MARKETING_VERSION: "0.0.2"
+        MARKETING_VERSION: "0.0.3"

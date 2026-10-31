@@ -131,7 +131,8 @@ final class OverlayView: NSView {
             }
         }
         if let size = controller.pixelSize(of: globalRect) {
-            drawSizeLabel("\(Int(size.width)) × \(Int(size.height))", selection: selection)
+            let suffix = model.phase == .adjusting && !controller.isGeometryEditable ? " · 选区已锁定" : ""
+            drawSizeLabel("\(Int(size.width)) × \(Int(size.height))" + suffix, selection: selection)
         }
     }
 

@@ -18,8 +18,6 @@ public enum OverlayResult {
 @MainActor
 public final class OverlayController {
     private static let logger = Logger(subsystem: "com.cruxshot", category: "Overlay")
-    static let toolbarGap: CGFloat = 8
-    static let edgeMargin: CGFloat = 4
 
     private enum GeometryDrag {
         case resize(SelectionHandle, start: CGRect, from: CGPoint)
@@ -122,7 +120,8 @@ public final class OverlayController {
     /// true → the OverlayView takes the mouse event; false → normal hit testing (canvas/toolbar).
     func overlayClaimsMouse(atLocal p: CGPoint, in view: OverlayView) -> Bool {
         guard model.phase == .adjusting else { return true }
-        if let tb = toolbar, tb.superview === view, tb.frame.contains(p) { return false }
+        if let tb = toolbar, tb.superview === view,
+           tb.frame.contains(p) || tb.toolRack.frame.contains(p) { return false }
         let g = view.global(p)
         if isGeometryEditable, let r = model.rect {
             if geometryHandle(at: g, in: r) != nil { return true }
@@ -170,6 +169,7 @@ public final class OverlayController {
             // Hidden while the geometry changes; rebuilt for the new crop on mouse up.
             canvas?.removeFromSuperview()
             toolbar?.removeFromSuperview()
+            toolbar?.toolRack.removeFromSuperview()
         }
     }
 
@@ -210,7 +210,8 @@ public final class OverlayController {
 
     private func updateAdjustingCursor(at g: CGPoint) {
         guard let rect = model.rect else { return }
-        if let tb = toolbar, let host = canvasHost, host.display.frame.contains(g), tb.frame.contains(host.local(g)) {
+        if let tb = toolbar, let host = canvasHost, host.display.frame.contains(g),
+           tb.frame.contains(host.local(g)) || tb.toolRack.frame.contains(host.local(g)) {
             NSCursor.arrow.set()
         } else if isGeometryEditable, geometryHandle(at: g, in: rect) != nil {
             NSCursor.crosshair.set()
@@ -241,7 +242,7 @@ public final class OverlayController {
     private func perform(_ action: OverlayAction) {
         switch action {
         case .cancel:
-            cancel()
+            if canvas?.tool != nil { setTool(nil) } else { cancel() }
         case .copy, .save, .pin, .ocr:
             export(action)
         case .undo, .redo:
@@ -297,6 +298,7 @@ public final class OverlayController {
         let tool = canvas?.tool
         canvas?.removeFromSuperview()
         toolbar?.removeFromSuperview()
+        toolbar?.toolRack.removeFromSuperview()
         guard let rect = model.rect, let crop = pixels.crop(rect),
               let host = windows.first(where: { $0.overlayView.display.displayID == crop.frame.display.displayID })?.overlayView
         else {
@@ -323,6 +325,7 @@ public final class OverlayController {
         let tb = toolbar ?? ToolbarView()
         tb.onCommand = { [weak self] in self?.handleToolbar($0) }
         host.addSubview(tb)
+        host.addSubview(tb.toolRack)
 
         document = doc
         canvas = cv
@@ -350,6 +353,8 @@ public final class OverlayController {
         switch command {
         case .action(let action):
             perform(action)
+        case .select:
+            setTool(nil)
         case .toggleTool(let tool):
             setTool(canvas?.tool == tool ? nil : tool)
         case .color(let color):
@@ -364,7 +369,7 @@ public final class OverlayController {
             preferences.mosaicMode = mode
             canvas?.mosaicMode = mode
             updateToolbar()
-        case .done:
+        case .done, .discard:
             break
         }
     }
@@ -381,15 +386,14 @@ public final class OverlayController {
         layoutToolbar()
     }
 
-    /// 8pt below the selection, right-aligned; inside the selection's bottom when there is no room.
+    /// Drawing tools stay beside the crop; output actions stay below or above it.
     private func layoutToolbar() {
         guard let tb = toolbar, let host = canvasHost, let cv = canvas else { return }
-        let size = tb.fittingSize
-        let r = cv.frame, b = host.bounds, m = Self.edgeMargin
-        let x = min(max(r.maxX - size.width, b.minX + m), b.maxX - size.width - m)
-        var y = r.minY - Self.toolbarGap - size.height
-        if y < b.minY + m { y = max(r.minY + Self.toolbarGap, b.minY + m) }
-        tb.frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
+        let visible = host.window?.screen.map { host.local($0.visibleFrame) } ?? host.bounds
+        let layout = ToolbarLayout(selection: cv.frame, available: visible.intersection(host.bounds),
+                                   toolSize: tb.toolRack.fittingSize, actionSize: tb.fittingSize)
+        tb.frame = layout.actions
+        tb.toolRack.frame = layout.tools
     }
 
     /// With a drawing tool active, only the handles and the band outside the border resize, so

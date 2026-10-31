@@ -5,6 +5,7 @@ protocol PinViewDelegate: AnyObject {
     /// `anchor` is the cursor in AppKit global coordinates.
     func pinView(zoomBy factor: CGFloat, anchor: CGPoint)
     func pinView(adjustOpacityBy delta: CGFloat)
+    func pinViewHoverChanged(_ hovered: Bool)
     func pinViewDoubleClicked()
     func pinViewMenu() -> NSMenu?
     /// true if handled.
@@ -72,7 +73,11 @@ final class PinView: NSView {
 
     /// Shows e.g. "150%" in the bottom-right corner for `zoomLabelDuration` seconds.
     func showZoom(percent: Int) {
-        zoomLabel.stringValue = "\(percent)%"
+        showStatus("缩放 \(percent)%")
+    }
+
+    func showStatus(_ text: String) {
+        zoomLabel.stringValue = text
         let size = zoomLabel.fittingSize
         let w = size.width + 10, h = size.height + 4
         zoomLabel.frame = CGRect(x: bounds.maxX - w - 6, y: bounds.minY + 6, width: w, height: h)
@@ -96,8 +101,8 @@ final class PinView: NSView {
                                        owner: self, userInfo: nil))
     }
 
-    override func mouseEntered(with event: NSEvent) { isHovered = true }
-    override func mouseExited(with event: NSEvent) { isHovered = false }
+    override func mouseEntered(with event: NSEvent) { isHovered = true; delegate?.pinViewHoverChanged(true) }
+    override func mouseExited(with event: NSEvent) { isHovered = false; delegate?.pinViewHoverChanged(false) }
 
     // MARK: Input
 

@@ -1,13 +1,13 @@
 import AppKit
 
-/// Small HUD notice in the main screen's top-right corner. Non-activating; a new toast replaces
-/// the current one. Fades out after 2.5s (4s when it has an action button).
+/// Non-activating notice on the pointer's screen. A new toast replaces the current one;
+/// notices last 2.5s (6s with an action), and remain visible while hovered.
 @MainActor
 public enum Toast {
     static let width: CGFloat = 300
     static let inset: CGFloat = 16
     static let duration: Double = 2.5
-    static let durationWithAction: Double = 4
+    static let durationWithAction: Double = 6
     static let fadeDuration: Double = 0.2
 
     private static var panel: NSPanel?
@@ -29,6 +29,8 @@ public enum Toast {
             label.font = .systemFont(ofSize: 11)
             label.textColor = .secondaryLabelColor
             label.maximumNumberOfLines = 3
+            label.toolTip = detail
+            label.setAccessibilityValue(detail)
             label.lineBreakMode = .byTruncatingTail
             label.preferredMaxLayoutWidth = width - 24
             views.append(label)
@@ -47,7 +49,7 @@ public enum Toast {
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let effect = NSVisualEffectView()
+        let effect = ToastSurface()
         effect.material = .hudWindow
         effect.blendingMode = .behindWindow
         effect.state = .active
@@ -76,7 +78,7 @@ public enum Toast {
         p.isReleasedWhenClosed = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         p.contentView = effect
-        if let screen = NSScreen.main ?? NSScreen.screens.first {
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main {
             let vf = screen.visibleFrame
             p.setFrameOrigin(CGPoint(x: vf.maxX - inset - size.width, y: vf.maxY - inset - size.height))
         }
@@ -87,6 +89,12 @@ public enum Toast {
         let seconds = action == nil ? duration : durationWithAction
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(seconds))
+            guard generation == g else { return }
+            // Leave actionable notices readable while the pointer is over the panel.
+            while generation == g, effect.isHovered {
+                try? await Task.sleep(for: .seconds(1))
+            }
+            guard generation == g else { return }
             await fadeOut(generation: g)
         }
     }
@@ -94,7 +102,7 @@ public enum Toast {
     private static func fadeOut(generation g: Int) async {
         guard generation == g, let p = panel else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = fadeDuration
+            ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : fadeDuration
             p.animator().alphaValue = 0
         }, completionHandler: nil)
         try? await Task.sleep(for: .seconds(fadeDuration))
@@ -123,4 +131,17 @@ private final class ActionTarget: NSObject {
         let h = handler
         Toast.actionFired(h)
     }
+}
+
+@MainActor
+private final class ToastSurface: NSVisualEffectView {
+    private(set) var isHovered = false
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
 }

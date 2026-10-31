@@ -50,3 +50,14 @@ import Testing
         #expect(act(6, "z", [.command, .option]) == nil)
     }
 }
+
+@Test func selectionToolShortcutDoesNotInterceptTextInput() {
+    #expect(OverlayKeyMap.action(keyCode: 9, characters: "v", modifiers: [], phase: .adjusting,
+                                isEditingText: false) == .selectTool(nil))
+    #expect(OverlayKeyMap.action(keyCode: 9, characters: "v", modifiers: [], phase: .adjusting,
+                                isEditingText: true) == nil)
+    #expect(OverlayKeyMap.action(keyCode: 9, characters: "v", modifiers: [], phase: .selecting,
+                                isEditingText: false) == nil)
+    #expect(PinEditKeyMap.action(characters: "v", keyCode: 9, modifiers: []) == .select)
+    #expect(PinKeyMap.action(characters: "v", keyCode: 9, modifiers: []) == .flipV)
+}

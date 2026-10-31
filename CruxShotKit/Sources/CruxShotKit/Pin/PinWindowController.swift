@@ -9,6 +9,7 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
     private let view: PinView
     private unowned let presenter: PinWindowPresenter
     private var editor: PinEditor?
+    private var actionBar: PinActionBar?
     /// Orientation to restore after editing (editing happens upright).
     private var savedOrientation: PinTransform?
 
@@ -48,6 +49,8 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         if annotationsChanged { view.image = new.annotatedImage() }
         view.transform = new.transform
         editor?.layout()
+        actionBar?.layout()
+        if new.clickThrough { actionBar?.hide() }
     }
 
     /// `new` is the item as displayed. During editing the manager gets the saved orientation
@@ -86,7 +89,18 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         PinGeometry.zoomedFrame(frame, to: t.displaySize(for: pointSize), anchor: CGPoint(x: frame.midX, y: frame.midY))
     }
 
+    func setHidden(_ hidden: Bool) {
+        if hidden {
+            actionBar?.hide()
+            window.orderOut(nil)
+        } else {
+            window.orderFrontRegardless()
+        }
+    }
+
     func teardown() {
+        actionBar?.hide()
+        actionBar = nil
         if let editor { _ = editor.finish() }
         editor = nil
         window.delegate = nil
@@ -131,6 +145,7 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
             var n = item
             n.clickThrough.toggle()
             commit(n)
+            if n.clickThrough { Toast.show("已开启点击穿透", detail: "从菜单栏的贴图列表中选择这张贴图，即可恢复操作。") }
         case .copy: presenter.copy(item.composedImage())
         case .save: presenter.save(item.composedImage())
         }
@@ -146,6 +161,7 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
 
     private func beginEditing() {
         guard editor == nil else { return }
+        actionBar?.hide()
         if PinGeometry.hasOrientation(item.transform) {
             // Upright only locally; the manager keeps the real orientation.
             let stored = item
@@ -195,6 +211,16 @@ final class PinWindowController: NSObject, NSWindowDelegate, PinViewDelegate {
         n.transform.adjustOpacity(by: delta)
         guard n.transform.opacity != item.transform.opacity else { return }
         commit(n)
+        view.showStatus("不透明度 \(Int((n.transform.opacity * 100).rounded()))%")
+    }
+
+    func pinViewHoverChanged(_ hovered: Bool) {
+        guard editor == nil, !item.clickThrough else { return }
+        if actionBar == nil {
+            actionBar = PinActionBar(parent: window, action: { [weak self] in self?.perform($0) },
+                                     menu: { [weak self] in self?.pinViewMenu() })
+        }
+        actionBar?.hover(hovered)
     }
 
     func pinViewDoubleClicked() {

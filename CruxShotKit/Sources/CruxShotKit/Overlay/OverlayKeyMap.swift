@@ -2,7 +2,7 @@ import AppKit
 
 public enum OverlayAction: Equatable {
     case cancel, copy, save, pin, ocr, undo, redo
-    case selectTool(CanvasTool)
+    case selectTool(CanvasTool?)
     case nudge(dx: Int, dy: Int)
     case resize(dw: Int, dh: Int)
     case copyColor, toggleColorFormat
@@ -48,6 +48,7 @@ public enum OverlayKeyMap {
             }
             if mods == [] {
                 switch ch {
+                case "v": return .selectTool(nil)
                 case "r": return .selectTool(.rect)
                 case "a": return .selectTool(.arrow)
                 case "p": return .selectTool(.pen)

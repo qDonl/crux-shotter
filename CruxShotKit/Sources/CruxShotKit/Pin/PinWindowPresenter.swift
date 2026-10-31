@@ -38,7 +38,7 @@ public final class PinWindowPresenter: PinPresenting {
     public func setHidden(_ hidden: Bool) {
         isHidden = hidden
         for controller in controllers.values {
-            if hidden { controller.window.orderOut(nil) } else { controller.window.orderFrontRegardless() }
+            controller.setHidden(hidden)
         }
     }
 

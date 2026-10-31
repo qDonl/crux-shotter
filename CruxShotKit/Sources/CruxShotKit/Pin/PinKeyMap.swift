@@ -34,7 +34,7 @@ public enum PinKeyMap {
 /// What a key does while a pin is being edited; mirrors the capture editor's shortcuts.
 public enum PinEditAction: Equatable {
     /// ↩ / ✓: keep the changes. Esc: discard everything since editing began.
-    case done, cancel, undo, redo, copy, save, ocr
+    case done, cancel, undo, redo, copy, save, ocr, select
     case toggleTool(CanvasTool)
 }
 
@@ -54,6 +54,7 @@ public enum PinEditKeyMap {
         case (.command, "c"): return .copy
         case (.command, "s"): return .save
         case ([.command, .shift], "c"): return .ocr
+        case ([], "v"): return .select
         case ([], let c?): return toolKeys[c].map { .toggleTool($0) }
         default: return nil
         }

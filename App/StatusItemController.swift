@@ -20,6 +20,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var conflictsObserver: AnyCancellable?
     private var iconObserver: AnyCancellable?
 
+    private var toggleItem: NSMenuItem?
     private let restoreItem = NSMenuItem(title: "恢复关闭的贴图", action: #selector(restorePin), keyEquivalent: "")
     private let closeAllItem = NSMenuItem(title: "关闭全部贴图", action: #selector(closeAllPins), keyEquivalent: "")
     private let pinListItem = NSMenuItem(title: "贴图列表", action: nil, keyEquivalent: "")
@@ -73,7 +74,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(item("OCR 截图", #selector(captureOCR), shortcut: .captureOCR))
         menu.addItem(.separator())
         menu.addItem(item("剪贴板贴图", #selector(pinClipboard), shortcut: .pinClipboard))
-        menu.addItem(item("显示/隐藏贴图", #selector(togglePins), shortcut: .togglePins))
+        let toggle = item("隐藏全部贴图", #selector(togglePins), shortcut: .togglePins)
+        toggleItem = toggle
+        menu.addItem(toggle)
         restoreItem.target = self
         restoreItem.setShortcut(for: .restorePin)
         menu.addItem(restoreItem)
@@ -102,6 +105,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === statusItem.menu else { return }
         let pins = coordinator.pins
+        toggleItem?.title = pins.isHidden ? "显示全部贴图" : "隐藏全部贴图"
+        toggleItem?.isEnabled = !pins.items.isEmpty
         restoreItem.isEnabled = pins.canRestore
         closeAllItem.isEnabled = !pins.items.isEmpty
         updatesItem.isEnabled = checkForUpdates != nil

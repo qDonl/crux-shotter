@@ -60,31 +60,40 @@ final class OnboardingWindow {
 private struct OnboardingView: View {
     let openSettings: () -> Void
     let relaunch: () -> Void
+    @State private var requested = false
+    @State private var granted = ScreenCapturePermission.isGranted
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "rectangle.dashed.badge.record")
-                .font(.system(size: 44))
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            Text("CruxShotter 需要屏幕录制权限")
+        VStack(alignment: .leading, spacing: 20) {
+            Label("开始使用 CruxShotter", systemImage: "viewfinder")
                 .font(.title2.weight(.semibold))
-            Text("仅用于截取屏幕画面，所有数据只保存在本机。")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Text("在「系统设置 › 隐私与安全性 › 屏幕与系统录音」中打开 CruxShotter，然后重启应用。")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
-                Button("打开系统设置", action: openSettings)
-                    .keyboardShortcut(.defaultAction)
-                Button("我已授权，立即重启", action: relaunch)
+            Text("允许屏幕录制，即可开始截图。")
+            VStack(alignment: .leading, spacing: 10) {
+                Label("仅用于截取屏幕画面", systemImage: "rectangle.dashed")
+                Label("截图和文字识别均在本机处理", systemImage: "lock")
             }
-            .padding(.top, 4)
+            .font(.callout).foregroundStyle(.secondary)
+            Divider()
+            Text(granted ? "权限已开启，重启应用后开始使用。" :
+                 "在系统设置的「屏幕与系统录音」中开启 CruxShotter，然后回到这里重启。")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                if requested && !granted {
+                    Button("已授权，重启应用", action: relaunch)
+                }
+                Spacer()
+                Button(granted ? "重启并开始使用" : "打开系统设置") {
+                    if granted { relaunch() } else { requested = true; openSettings() }
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            Text("稍后也可从菜单栏继续设置；剪贴板贴图无需录屏权限。")
+                .font(.caption).foregroundStyle(.secondary)
         }
-        .padding(28)
-        .frame(width: 420)
+        .padding(28).frame(width: 440)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            granted = ScreenCapturePermission.isGranted
+        }
     }
 }

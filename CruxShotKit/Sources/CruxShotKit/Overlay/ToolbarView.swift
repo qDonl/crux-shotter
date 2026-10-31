@@ -2,137 +2,125 @@ import AppKit
 
 enum ToolbarCommand {
     case action(OverlayAction)
-    /// Clicking the active tool deselects it (back to annotation-selection mode).
+    case select
     case toggleTool(CanvasTool)
     case color(PaletteColor)
     case lineWidth(LineWidth)
     case mosaicMode(MosaicMode)
-    /// Pin-edit toolbar only: finish editing.
-    case done
+    case done, discard
 }
 
-/// Annotation toolbar shown under the selection. Row 1: tools | undo redo | ocr pin save copy.
-/// Row 2 (only while a drawing tool is active): 6 colors + 3 line widths, or pixelate/blur for mosaic.
+/// Separate drawing rack and output bar, shared by capture and pin editing.
 @MainActor
-final class ToolbarView: NSView {
-    static let buttonSide: CGFloat = 28
-
-    /// `.overlay`: full capture toolbar. `.pinEdit`: the same tools and OCR/save/copy, then a done button.
+final class ToolbarView: ToolbarSurface {
+    static let buttonSide: CGFloat = 32
     enum Variant { case overlay, pinEdit }
 
+    let toolRack = ToolbarSurface()
     var onCommand: ((ToolbarCommand) -> Void)?
-
-    private static let tools: [(CanvasTool, String, String)] = [
-        (.rect, "square", "矩形 (R)"),
-        (.arrow, "arrow.up.right", "箭头 (A)"),
-        (.pen, "pencil.tip", "画笔 (P)"),
-        (.text, "textformat", "文字 (T)"),
-        (.counter, "1.circle", "序号 (N)"),
-        (.mosaic, "checkerboard.rectangle", "马赛克 (M)"),
-    ]
-
     private var toolButtons: [CanvasTool: ToolbarButton] = [:]
     private var colorButtons: [PaletteColor: ToolbarButton] = [:]
     private var widthButtons: [LineWidth: ToolbarButton] = [:]
     private var mosaicButtons: [MosaicMode: ToolbarButton] = [:]
+    private var selectButton: ToolbarButton!
     private var undoButton: ToolbarButton!
     private var redoButton: ToolbarButton!
-    private let styleRow = NSStackView()
-    private let mosaicRow = NSStackView()
+    private let properties = NSStackView()
+    private let styles = NSStackView()
+    private let mosaic = NSStackView()
+    private let toolLabel = NSTextField(labelWithString: "选择")
 
     init(variant: Variant = .overlay) {
         super.init(frame: .zero)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.12, alpha: 0.94).cgColor
-        layer?.cornerRadius = 8
-
-        var row1: [NSView] = []
-        for (tool, symbol, tip) in Self.tools {
-            let b = ToolbarButton(symbol: symbol, tooltip: tip) { [weak self] in self?.onCommand?(.toggleTool(tool)) }
-            toolButtons[tool] = b
-            row1.append(b)
+        setAccessibilityLabel("输出与样式")
+        toolRack.setAccessibilityLabel("绘图工具")
+        selectButton = ToolbarButton(symbol: "cursorarrow", tooltip: "选择 / 移动标注 (V)") { [weak self] in
+            self?.onCommand?(.select)
         }
-        row1.append(Self.separator())
+        var tools: [NSView] = [selectButton, Self.separator(horizontal: true)]
+        for (tool, symbol, title) in [
+            (CanvasTool.rect, "square", "矩形 (R)"), (.arrow, "arrow.up.right", "箭头 (A)"),
+            (.pen, "pencil.tip", "画笔 (P)"), (.text, "textformat", "文字 (T)"),
+            (.counter, "1.circle", "序号 (N)"), (.mosaic, "checkerboard.rectangle", "马赛克 (M)"),
+        ] {
+            let b = ToolbarButton(symbol: symbol, tooltip: title) { [weak self] in self?.onCommand?(.toggleTool(tool)) }
+            toolButtons[tool] = b
+            tools.append(b)
+        }
+        Self.install(NSStackView(views: tools), in: toolRack, orientation: .vertical)
+
         undoButton = button("arrow.uturn.backward", "撤销 (⌘Z)", .undo)
         redoButton = button("arrow.uturn.forward", "重做 (⇧⌘Z)", .redo)
-        row1 += [undoButton, redoButton, Self.separator()]
-        switch variant {
-        case .overlay:
-            row1 += [
-                button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr),
-                button("pin", "贴图 (⌘T)", .pin),
-                button("square.and.arrow.down", "保存 (⌘S)", .save),
-                button("checkmark", "复制 (↩)", .copy),
-            ]
-        case .pinEdit:
-            row1 += [
-                button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr),
-                button("square.and.arrow.down", "保存 (⌘S)", .save),
-                button("doc.on.doc", "复制 (⌘C)", .copy),
-                ToolbarButton(symbol: "checkmark", tooltip: "完成 (↩)，Esc 放弃本次修改") { [weak self] in
-                    self?.onCommand?(.done)
-                },
-            ]
+        var actions: [NSView] = [undoButton, redoButton, Self.separator(),
+                                 button("text.viewfinder", "识别文字 (⇧⌘C)", .ocr)]
+        if variant == .overlay { actions.append(button("pin", "贴图 (⌘T)", .pin)) }
+        actions.append(button("square.and.arrow.down", "保存 (⌘S)", .save))
+        if variant == .overlay {
+            actions.append(ToolbarButton(title: "复制 ↩", primary: true) { [weak self] in self?.onCommand?(.action(.copy)) })
+        } else {
+            actions.append(button("doc.on.doc", "复制 (⌘C)", .copy))
+            actions.append(ToolbarButton(symbol: "xmark", tooltip: "取消本次修改 (Esc)") { [weak self] in
+                self?.onCommand?(.discard)
+            })
+            actions.append(ToolbarButton(title: "完成 ↩", primary: true) { [weak self] in self?.onCommand?(.done) })
         }
-
         for color in PaletteColor.allCases {
-            let b = ToolbarButton(image: Self.swatch(color), tooltip: color.rawValue) { [weak self] in
+            let b = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color)) { [weak self] in
                 self?.onCommand?(.color(color))
             }
             colorButtons[color] = b
-            styleRow.addArrangedSubview(b)
+            styles.addArrangedSubview(b)
         }
-        styleRow.addArrangedSubview(Self.separator())
+        styles.addArrangedSubview(Self.separator())
         for width in LineWidth.allCases {
-            let b = ToolbarButton(image: Self.dot(width), tooltip: "\(Int(width.rawValue))pt") { [weak self] in
-                self?.onCommand?(.lineWidth(width))
-            }
+            let b = ToolbarButton(title: "\(Int(width.rawValue))") { [weak self] in self?.onCommand?(.lineWidth(width)) }
+            b.toolTip = "线宽 \(Int(width.rawValue))pt"
+            b.setAccessibilityLabel(b.toolTip)
             widthButtons[width] = b
-            styleRow.addArrangedSubview(b)
+            styles.addArrangedSubview(b)
         }
         for (mode, title) in [(MosaicMode.pixelate, "像素化"), (.blur, "模糊")] {
             let b = ToolbarButton(title: title) { [weak self] in self?.onCommand?(.mosaicMode(mode)) }
             mosaicButtons[mode] = b
-            mosaicRow.addArrangedSubview(b)
+            mosaic.addArrangedSubview(b)
         }
-
-        let firstRow = NSStackView(views: row1)
-        for row in [firstRow, styleRow, mosaicRow] {
-            row.orientation = .horizontal
-            row.spacing = 2
-        }
-        let stack = NSStackView(views: [firstRow, styleRow, mosaicRow])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        stack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
-        styleRow.isHidden = true
-        mosaicRow.isHidden = true
+        for row in [styles, mosaic] { row.orientation = .horizontal; row.spacing = 2 }
+        // Reserve one property row so changing tools never moves the output actions.
+        properties.orientation = .horizontal
+        properties.alignment = .centerY
+        properties.addArrangedSubview(toolLabel)
+        properties.addArrangedSubview(styles)
+        properties.addArrangedSubview(mosaic)
+        toolLabel.font = .systemFont(ofSize: 11)
+        toolLabel.textColor = .secondaryLabelColor
+        toolLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let actionRow = NSStackView(views: actions)
+        actionRow.orientation = .horizontal
+        actionRow.spacing = 2
+        let stack = NSStackView(views: [actionRow, properties])
+        Self.install(stack, in: self, orientation: .vertical)
+        properties.heightAnchor.constraint(equalToConstant: Self.buttonSide).isActive = true
+        properties.widthAnchor.constraint(greaterThanOrEqualToConstant: styles.fittingSize.width).isActive = true
+        styles.isHidden = true
+        mosaic.isHidden = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
     func update(tool: CanvasTool?, color: PaletteColor, lineWidth: LineWidth, mosaicMode: MosaicMode,
                 canUndo: Bool, canRedo: Bool) {
+        selectButton.isActive = tool == nil
         for (t, b) in toolButtons { b.isActive = t == tool }
         for (c, b) in colorButtons { b.isActive = c == color }
         for (w, b) in widthButtons { b.isActive = w == lineWidth }
         for (m, b) in mosaicButtons { b.isActive = m == mosaicMode }
         undoButton.isEnabled = canUndo
         redoButton.isEnabled = canRedo
-        styleRow.isHidden = tool == nil || tool == .mosaic
-        mosaicRow.isHidden = tool != .mosaic
+        styles.isHidden = tool == nil || tool == .mosaic
+        mosaic.isHidden = tool != .mosaic
+        toolLabel.isHidden = tool != nil
+        toolLabel.stringValue = "选择模式 · V 选择 · R 矩形 · Esc 退出"
         layoutSubtreeIfNeeded()
     }
 
@@ -140,84 +128,129 @@ final class ToolbarView: NSView {
         ToolbarButton(symbol: symbol, tooltip: tip) { [weak self] in self?.onCommand?(.action(action)) }
     }
 
-    private static func separator() -> NSView {
-        let v = NSView()
-        v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor(white: 1, alpha: 0.25).cgColor
-        v.translatesAutoresizingMaskIntoConstraints = false
+    private static func install(_ stack: NSStackView, in view: NSView, orientation: NSUserInterfaceLayoutOrientation) {
+        stack.orientation = orientation
+        stack.alignment = orientation == .vertical ? .centerX : .centerY
+        stack.spacing = 4
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
         NSLayoutConstraint.activate([
-            v.widthAnchor.constraint(equalToConstant: 1),
-            v.heightAnchor.constraint(equalToConstant: 18),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 6),
+            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
         ])
-        return v
+    }
+
+    private static func separator(horizontal: Bool = false) -> NSView {
+        let view = NSBox()
+        view.boxType = .separator
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            view.widthAnchor.constraint(equalToConstant: horizontal ? 20 : 1),
+            view.heightAnchor.constraint(equalToConstant: horizontal ? 1 : 18),
+        ])
+        return view
+    }
+
+    private static func colorName(_ color: PaletteColor) -> String {
+        switch color {
+        case .red: "红色"
+        case .yellow: "黄色"
+        case .green: "绿色"
+        case .blue: "蓝色"
+        case .orange: "橙色"
+        case .black: "黑色"
+        }
     }
 
     private static func swatch(_ color: PaletteColor) -> NSImage {
         NSImage(size: CGSize(width: 16, height: 16), flipped: false) { rect in
-            let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 1.5, dy: 1.5))
+            let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 2, dy: 2))
             (NSColor(cgColor: color.cgColor) ?? .red).setFill()
             circle.fill()
-            NSColor(white: 1, alpha: 0.8).setStroke()
+            NSColor.secondaryLabelColor.setStroke()
             circle.lineWidth = 1
             circle.stroke()
             return true
         }
     }
-
-    private static func dot(_ width: LineWidth) -> NSImage {
-        let d = width.rawValue + 2
-        return NSImage(size: CGSize(width: 16, height: 16), flipped: false) { rect in
-            NSColor.white.setFill()
-            NSBezierPath(ovalIn: CGRect(x: rect.midX - d / 2, y: rect.midY - d / 2, width: d, height: d)).fill()
-            return true
-        }
-    }
 }
 
-/// Borderless toolbar button that never takes first responder (keys stay with the canvas/overlay).
+/// A quiet, opaque surface keeps controls readable over any screenshot.
+@MainActor
+class ToolbarSurface: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        appearance = NSAppearance(named: .darkAqua)
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.masksToBounds = true
+    }
+
+    convenience init() { self.init(frame: .zero) }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+        NSColor.separatorColor.setStroke()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8).stroke()
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+/// Borderless button; drawing controls never take focus away from the text/canvas responder.
 @MainActor
 final class ToolbarButton: NSButton {
     private let handler: () -> Void
-
-    var isActive = false { didSet { updateAppearance() } }
-    override var isEnabled: Bool { didSet { updateAppearance() } }
+    private let primary: Bool
+    private var hovered = false
+    var isActive = false {
+        didSet { state = isActive ? .on : .off; needsDisplay = true }
+    }
+    override var isEnabled: Bool { didSet { alphaValue = isEnabled ? 1 : 0.35; needsDisplay = true } }
 
     convenience init(symbol: String, tooltip: String, handler: @escaping () -> Void) {
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
-        self.init(image: image, tooltip: tooltip, handler: handler)
-        if image == nil { setWhiteTitle(String(tooltip.prefix(1))) }
+        self.init(image: NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip),
+                  tooltip: tooltip, handler: handler)
     }
 
     init(image: NSImage?, tooltip: String, handler: @escaping () -> Void) {
         self.handler = handler
+        primary = false
         super.init(frame: .zero)
         title = ""
         self.image = image
-        imagePosition = image == nil ? .noImage : .imageOnly
-        toolTip = tooltip
-        setAccessibilityLabel(tooltip)
-        configure(width: ToolbarView.buttonSide)
+        imagePosition = .imageOnly
+        configure(width: ToolbarView.buttonSide, tooltip: tooltip)
     }
 
-    init(title: String, handler: @escaping () -> Void) {
+    init(title: String, primary: Bool = false, handler: @escaping () -> Void) {
         self.handler = handler
+        self.primary = primary
         super.init(frame: .zero)
-        setWhiteTitle(title)
+        self.title = title
+        font = .systemFont(ofSize: 12, weight: primary ? .medium : .regular)
         imagePosition = .noImage
-        configure(width: 56)
+        configure(width: max(ToolbarView.buttonSide, ceil((title as NSString).size(withAttributes: [.font: font!]).width) + 20),
+                  tooltip: title)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    private func configure(width: CGFloat) {
+    private func configure(width: CGFloat, tooltip: String) {
+        toolTip = tooltip
+        setAccessibilityLabel(tooltip)
         isBordered = false
+        setButtonType(.momentaryChange)
         bezelStyle = .regularSquare
-        imageScaling = .scaleProportionallyDown
-        contentTintColor = .white
+        contentTintColor = primary ? .white : .labelColor
         refusesFirstResponder = true
-        wantsLayer = true
-        layer?.cornerRadius = 5
         target = self
         action = #selector(fire)
         translatesAutoresizingMaskIntoConstraints = false
@@ -227,18 +260,22 @@ final class ToolbarButton: NSButton {
         ])
     }
 
-    private func setWhiteTitle(_ text: String) {
-        attributedTitle = NSAttributedString(string: text, attributes: [
-            .foregroundColor: NSColor.white, .font: NSFont.systemFont(ofSize: 12),
-        ])
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
     }
-
+    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
+    override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
+    override func draw(_ dirtyRect: NSRect) {
+        let color: NSColor = primary ? .controlAccentColor : isActive ? .selectedContentBackgroundColor
+            : isHighlighted ? .quaternaryLabelColor : hovered && isEnabled ? .quinaryLabel : .clear
+        color.setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5).fill()
+        super.draw(dirtyRect)
+    }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
     @objc private func fire() { handler() }
-
-    private func updateAppearance() {
-        layer?.backgroundColor = isActive ? OverlayView.accent.withAlphaComponent(0.85).cgColor : nil
-        alphaValue = isEnabled ? 1 : 0.35
-    }
 }
