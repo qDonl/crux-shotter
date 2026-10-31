@@ -43,4 +43,14 @@ import Testing
         #expect(p.colorString(at: CGPoint(x: 10.2, y: 49.9), format: .rgb) == "rgb(20, 0, 1)")
         #expect(p.colorString(at: CGPoint(x: 150, y: 45), format: .hex) == nil)
     }
+    @Test func explicitDisplayKeepsCropOnOriginalScreen() throws {
+        let rect = CGRect(x: 90, y: 0, width: 80, height: 20)
+        let crop = try #require(pixels().crop(rect, displayID: left.displayID))
+        #expect(crop.frame.display == left)
+        #expect(crop.globalRect == CGRect(x: 90, y: 0, width: 10, height: 20))
+        #expect(crop.image.width == 20 && crop.image.height == 40)
+        #expect(pixels().crop(rect, displayID: 999) == nil)
+        #expect(pixels().crop(right.frame, displayID: left.displayID) == nil)
+    }
+
 }

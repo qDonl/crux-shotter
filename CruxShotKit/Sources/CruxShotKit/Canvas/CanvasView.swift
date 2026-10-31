@@ -19,6 +19,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     /// end a text edit. The overlay uses it for "double-click to copy".
     public var onDoubleClick: (() -> Void)?
     public var isEditingText: Bool { textView != nil }
+    var canDoubleClickCopy: Bool { !isEditingText && !clickSequenceEndedEditing }
     public var selectedAnnotationStyle: AnnotationStyle? {
         guard let id = validSelectedID else { return nil }
         return document.annotations.first { $0.id == id }?.style
@@ -97,6 +98,11 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         }
     }
 
+    /// The overlay also receives empty-space clicks while the selection can be moved.
+    func beginClickSequence(clickCount: Int) {
+        if clickCount <= 1 { clickSequenceEndedEditing = isEditingText }
+    }
+
     /// Commits the in-place text editor, if any. Empty or whitespace-only text adds nothing.
     public func commitTextEditing() { commitText(refocus: true) }
 
@@ -147,7 +153,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     public override func mouseDown(with event: NSEvent) {
         let wasEditingText = isEditingText
-        if event.clickCount <= 1 { clickSequenceEndedEditing = wasEditingText }
+        beginClickSequence(clickCount: event.clickCount)
         window?.makeFirstResponder(self)
         commitTextEditing()
         let p = convert(event.locationInWindow, from: nil)

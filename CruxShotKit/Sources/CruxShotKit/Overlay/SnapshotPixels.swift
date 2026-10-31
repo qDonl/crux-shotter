@@ -34,9 +34,15 @@ final class SnapshotPixels {
     }
 
     /// Crops `rect` from the display containing its center (clipped to that display; v1 does not
-    /// stitch displays).
-    func crop(_ rect: CGRect) -> Crop? {
-        guard let frame = bestFrame(for: rect) else { return nil }
+    /// stitch displays). An explicit display ID keeps adjustments on the original display.
+    func crop(_ rect: CGRect, displayID: CGDirectDisplayID? = nil) -> Crop? {
+        let selected: CapturedFrame?
+        if let displayID {
+            selected = snapshot.frames.first { $0.display.displayID == displayID }
+        } else {
+            selected = bestFrame(for: rect)
+        }
+        guard let frame = selected else { return nil }
         let px = Geometry.pixelRect(for: rect, on: frame.display)
         guard !px.isNull, !px.isEmpty, let image = frame.image.cropping(to: px) else { return nil }
         let d = frame.display, s = d.scale

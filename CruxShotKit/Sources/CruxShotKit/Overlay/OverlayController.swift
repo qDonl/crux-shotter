@@ -35,11 +35,12 @@ public final class OverlayController {
     private var cursor: CGPoint = .zero
     private var isFinished = false
 
-    private var document: AnnotationDocument?
+    private(set) var document: AnnotationDocument?
     private var canvas: CanvasView?
     private var canvasHost: OverlayView?
     private var toolbar: ToolbarView?
-    private var cropGlobalRect: CGRect = .null
+    private var cropGlobalRect: CGRect { document?.captureFrame ?? .null }
+    private var editingDisplayID: CGDirectDisplayID?
     private var geometryDrag: GeometryDrag?
 
     public init(snapshot: CaptureSnapshot, mode: OverlayMode, preferences: Preferences) {
@@ -108,10 +109,22 @@ public final class OverlayController {
 
     // MARK: Queries used by the views
 
-    /// Selection move/resize is allowed only before anything is annotated (annotations live in
-    /// crop coordinates, so changing the crop under them is not supported in v1).
-    var isGeometryEditable: Bool {
-        model.phase == .adjusting && (document?.annotations.isEmpty ?? true) && !(canvas?.isEditingText ?? false)
+    /// Crop adjustments preserve the same document, annotations, and undo history.
+    var isGeometryEditable: Bool { model.phase == .adjusting && document != nil }
+
+    private var editingBounds: CGRect {
+        snapshot.frames.first { $0.display.displayID == editingDisplayID }?.display.frame ?? model.bounds
+    }
+
+    /// Empty-space dragging moves the crop; clicking a mark or its handles belongs to the canvas.
+    func isSelectionBackground(at global: CGPoint) -> Bool {
+        guard let rect = model.rect, rect.contains(global), canvas?.tool == nil,
+              !(canvas?.isEditingText ?? false) else { return false }
+        guard let document, let frame = document.captureFrame else { return true }
+        let point = Geometry.imagePoint(fromGlobal: global, imageOriginGlobal: frame)
+        if let selected = canvas?.selectedID.flatMap({ id in document.annotations.first { $0.id == id } }),
+           AnnotationResizer.handle(at: point, for: selected) != nil { return false }
+        return AnnotationHitTester.hit(point, in: document.annotations) == nil
     }
 
     /// Pixel size of a global rect on the display containing its center.
@@ -125,7 +138,7 @@ public final class OverlayController {
         let g = view.global(p)
         if isGeometryEditable, let r = model.rect {
             if geometryHandle(at: g, in: r) != nil { return true }
-            if r.contains(g), canvas?.tool == nil { return true }
+            if isSelectionBackground(at: g) { return true }
         }
         return false
     }
@@ -150,26 +163,30 @@ public final class OverlayController {
             model.mouseDown(at: g)
             refresh()
         case .adjusting:
+            canvas?.beginClickSequence(clickCount: clickCount)
             // Double-click inside the selection with no drawing tool copies. (When annotations
             // exist the canvas gets the clicks and reports this through `onDoubleClick`.)
-            if clickCount == 2, canvas?.tool == nil, let rect = model.rect, rect.contains(g) {
+            if clickCount == 2, isSelectionBackground(at: g), canvas?.canDoubleClickCopy ?? true,
+               let rect = model.rect, geometryHandle(at: g, in: rect) == nil {
                 geometryDrag = nil
                 perform(.copy)
                 return
             }
             guard isGeometryEditable, let rect = model.rect else { return }
+            canvas?.commitTextEditing()
             if let h = geometryHandle(at: g, in: rect) {
                 geometryDrag = .resize(h, start: rect, from: g)
-            } else if rect.contains(g), canvas?.tool == nil {
+            } else if isSelectionBackground(at: g) {
                 geometryDrag = .move(start: rect, from: g)
-                NSCursor.closedHand.set()
+                if !windows.isEmpty { NSCursor.closedHand.set() }
             } else {
                 return
             }
-            // Hidden while the geometry changes; rebuilt for the new crop on mouse up.
-            canvas?.removeFromSuperview()
+            // Keep marks visible in global coordinates while previewing the crop. Only output
+            // controls are hidden until the single undoable crop change commits on mouse-up.
             toolbar?.removeFromSuperview()
             toolbar?.toolRack.removeFromSuperview()
+            if let host = canvasHost { host.window?.makeFirstResponder(host) }
         }
     }
 
@@ -182,14 +199,15 @@ public final class OverlayController {
             guard let geometryDrag else { return }
             switch geometryDrag {
             case let .resize(h, start, from):
-                model.setRect(h.resized(start, by: CGVector(dx: g.x - from.x, dy: g.y - from.y)))
+                model.setRect(h.resized(start, by: CGVector(dx: g.x - from.x, dy: g.y - from.y)).intersection(editingBounds))
             case let .move(start, from):
-                let b = model.bounds
+                let b = editingBounds
                 var r = start
                 r.origin.x = min(max(start.minX + g.x - from.x, b.minX), max(b.minX, b.maxX - r.width))
                 r.origin.y = min(max(start.minY + g.y - from.y, b.minY), max(b.minY, b.maxY - r.height))
                 model.setRect(r)
             }
+            previewGeometry()
         }
         refresh()
     }
@@ -202,6 +220,7 @@ public final class OverlayController {
             if model.phase == .adjusting { enterAdjusting() } else { refresh() }
         case .adjusting:
             guard geometryDrag != nil else { return }
+            mouseDragged(to: g)
             geometryDrag = nil
             rebuildCanvas()
             updateAdjustingCursor(at: g)
@@ -209,14 +228,18 @@ public final class OverlayController {
     }
 
     private func updateAdjustingCursor(at g: CGPoint) {
-        guard let rect = model.rect else { return }
+        guard !windows.isEmpty, let rect = model.rect else { return }
         if let tb = toolbar, let host = canvasHost, host.display.frame.contains(g),
            tb.frame.contains(host.local(g)) || tb.toolRack.frame.contains(host.local(g)) {
             NSCursor.arrow.set()
-        } else if isGeometryEditable, geometryHandle(at: g, in: rect) != nil {
-            NSCursor.crosshair.set()
+        } else if isGeometryEditable, let handle = geometryHandle(at: g, in: rect) {
+            switch handle {
+            case .left, .right: NSCursor.resizeLeftRight.set()
+            case .top, .bottom: NSCursor.resizeUpDown.set()
+            default: NSCursor.crosshair.set()
+            }
         } else if rect.contains(g) {
-            (canvas?.tool == nil && isGeometryEditable ? NSCursor.openHand : NSCursor.crosshair).set()
+            (isSelectionBackground(at: g) ? NSCursor.openHand : NSCursor.crosshair).set()
         } else {
             NSCursor.arrow.set()
         }
@@ -230,6 +253,7 @@ public final class OverlayController {
             modifiers: event.modifierFlags, phase: model.phase,
             isEditingText: canvas?.isEditingText ?? false)
         else { return false }
+        if geometryDrag != nil, action != .cancel { return true }
         perform(action)
         return true
     }
@@ -242,6 +266,16 @@ public final class OverlayController {
     private func perform(_ action: OverlayAction) {
         switch action {
         case .cancel:
+            if geometryDrag != nil {
+                geometryDrag = nil
+                syncSelectionFromDocument()
+                restoreControls()
+                canvasHost?.window?.makeFirstResponder(canvas)
+                updateToolbar()
+                updateAdjustingCursor(at: cursor)
+                refresh()
+                return
+            }
             if canvas?.tool != nil { setTool(nil) } else { cancel() }
         case .copy, .save, .pin, .ocr:
             export(action)
@@ -254,11 +288,11 @@ public final class OverlayController {
             setTool(tool)
         case let .nudge(dx, dy):
             guard isGeometryEditable else { return }
-            model.nudge(dx: dx, dy: dy, pixelScale: selectionScale)
+            model.nudge(dx: dx, dy: dy, pixelScale: selectionScale, within: editingBounds)
             rebuildCanvas()
         case let .resize(dw, dh):
             guard isGeometryEditable else { return }
-            model.resize(dw: dw, dh: dh, pixelScale: selectionScale)
+            model.resize(dw: dw, dh: dh, pixelScale: selectionScale, within: editingBounds)
             rebuildCanvas()
         case .copyColor:
             guard let color = pixels.colorString(at: cursor, format: preferences.colorFormat) else { return }
@@ -271,7 +305,7 @@ public final class OverlayController {
     }
 
     private func export(_ action: OverlayAction) {
-        guard model.phase == .adjusting, let document else { return }
+        guard model.phase == .adjusting, geometryDrag == nil, let document else { return }
         canvas?.commitTextEditing()
         let image = AnnotationRenderer.render(document)
         switch action {
@@ -293,49 +327,77 @@ public final class OverlayController {
         rebuildCanvas()
     }
 
-    /// (Re)creates the document + canvas for the current selection and places the toolbar.
+    /// Re-crops only from the frozen snapshot, retaining marks and the document's full history.
     private func rebuildCanvas() {
-        let tool = canvas?.tool
-        canvas?.removeFromSuperview()
-        toolbar?.removeFromSuperview()
-        toolbar?.toolRack.removeFromSuperview()
-        guard let rect = model.rect, let crop = pixels.crop(rect),
-              let host = windows.first(where: { $0.overlayView.display.displayID == crop.frame.display.displayID })?.overlayView
-        else {
+        guard let rect = model.rect, let crop = pixels.crop(rect, displayID: editingDisplayID) else {
             Self.logger.error("selection crop failed")
-            // Drop the stale canvas so nothing can export the previous selection.
-            document = nil
-            canvas = nil
-            canvasHost = nil
-            toolbar = nil
-            cropGlobalRect = .null
+            // Keep the last valid selection rather than exporting stale pixels for a new rectangle.
+            syncSelectionFromDocument()
+            restoreControls()
+            updateToolbar()
             refresh()
             return
         }
-        let doc = AnnotationDocument(image: crop.image, scale: crop.frame.display.scale)
-        let cv = CanvasView(document: doc)
+        editingDisplayID = crop.frame.display.displayID
+        let doc: AnnotationDocument
+        if let existing = document {
+            existing.reframe(image: crop.image, scale: crop.frame.display.scale, frame: crop.globalRect)
+            doc = existing
+        } else {
+            doc = AnnotationDocument(image: crop.image, scale: crop.frame.display.scale, captureFrame: crop.globalRect)
+            document = doc
+        }
+        model.setRect(crop.globalRect)
+        // The editing state is usable independently of presentation (also exercised by component tests).
+        guard let host = windows.first(where: { $0.overlayView.display.displayID == crop.frame.display.displayID })?.overlayView else {
+            refresh()
+            return
+        }
+        let cv = canvas ?? CanvasView(document: doc)
+        cv.clipsToBounds = true
         cv.style = currentStyle
         cv.mosaicMode = preferences.mosaicMode
-        cv.tool = tool
         cv.onChange = { [weak self] in self?.documentChanged() }
         cv.onDoubleClick = { [weak self] in self?.perform(.copy) }
-        cv.setFrameOrigin(host.local(crop.globalRect).origin)
-        host.addSubview(cv, positioned: .below, relativeTo: host.magnifier)
-
+        if cv.superview !== host {
+            cv.removeFromSuperview()
+            host.addSubview(cv, positioned: .below, relativeTo: host.magnifier)
+        }
         let tb = toolbar ?? ToolbarView()
         tb.onCommand = { [weak self] in self?.handleToolbar($0) }
-        host.addSubview(tb)
-        host.addSubview(tb.toolRack)
-
-        document = doc
         canvas = cv
         canvasHost = host
         toolbar = tb
-        cropGlobalRect = crop.globalRect
+        syncSelectionFromDocument()
+        restoreControls()
         host.window?.makeKey()
         host.window?.makeFirstResponder(cv)
         updateToolbar()
         refresh()
+    }
+
+    private func restoreControls() {
+        guard let host = canvasHost, let toolbar else { return }
+        if toolbar.superview !== host { host.addSubview(toolbar) }
+        if toolbar.toolRack.superview !== host { host.addSubview(toolbar.toolRack) }
+    }
+
+    private func syncSelectionFromDocument() {
+        guard let document, let rect = document.captureFrame else { return }
+        model.setRect(rect)
+        guard let canvas, let host = canvasHost else { return }
+        canvas.frame = host.local(rect)
+        canvas.bounds = CGRect(origin: .zero, size: document.pointSize)
+        canvas.needsDisplay = true
+    }
+
+    private func previewGeometry() {
+        guard let rect = model.rect, let document, let previous = document.captureFrame,
+              let canvas, let host = canvasHost else { return }
+        canvas.frame = host.local(rect)
+        canvas.bounds = CGRect(x: rect.minX - previous.minX, y: previous.maxY - rect.maxY,
+                               width: rect.width, height: rect.height)
+        canvas.needsDisplay = true
     }
 
     private var currentStyle: AnnotationStyle {
@@ -379,6 +441,7 @@ public final class OverlayController {
     }
 
     private func documentChanged() {
+        if geometryDrag == nil { syncSelectionFromDocument() }
         updateToolbar()
         refresh()
     }

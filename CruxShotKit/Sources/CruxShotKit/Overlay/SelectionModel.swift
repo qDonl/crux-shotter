@@ -48,8 +48,9 @@ public struct SelectionModel: Sendable, Equatable {
     }
 
     /// Moves the rect by `dx/pixelScale`, `dy/pixelScale` points, keeping it inside `bounds`.
-    public mutating func nudge(dx: Int, dy: Int, pixelScale: CGFloat) {
-        guard var r = rect, pixelScale > 0 else { return }
+    public mutating func nudge(dx: Int, dy: Int, pixelScale: CGFloat, within limit: CGRect? = nil) {
+        let bounds = limit.map { $0.intersection(self.bounds) } ?? self.bounds
+        guard var r = rect, pixelScale > 0, !bounds.isEmpty, !bounds.isNull else { return }
         r.origin.x += CGFloat(dx) / pixelScale
         r.origin.y += CGFloat(dy) / pixelScale
         r.origin.x = min(max(r.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - r.width))
@@ -58,8 +59,9 @@ public struct SelectionModel: Sendable, Equatable {
     }
 
     /// Grows/shrinks the rect (origin fixed) by whole pixels; never below 1 pixel.
-    public mutating func resize(dw: Int, dh: Int, pixelScale: CGFloat) {
-        guard var r = rect, pixelScale > 0 else { return }
+    public mutating func resize(dw: Int, dh: Int, pixelScale: CGFloat, within limit: CGRect? = nil) {
+        let bounds = limit.map { $0.intersection(self.bounds) } ?? self.bounds
+        guard var r = rect, pixelScale > 0, !bounds.isEmpty, !bounds.isNull else { return }
         let minSide = 1 / pixelScale
         r.size.width = max(minSide, r.width + CGFloat(dw) / pixelScale)
         r.size.height = max(minSide, r.height + CGFloat(dh) / pixelScale)

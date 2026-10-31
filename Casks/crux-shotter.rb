@@ -1,6 +1,6 @@
 cask "crux-shotter" do
-  version "0.0.4-alpha"
-  sha256 "9b4e0a09761d4a5ba91310b03874a573aee43147c79b2b7d4d4789db03452215"
+  version "0.0.5-alpha"
+  sha256 "4b7704b012ea67cddef15e3810813220d9ebab6026ccb0bf66fb0c41c6000dc0"
 
   url "https://github.com/qDonl/crux-shotter/releases/download/v#{version}/CruxShotter-#{version}.dmg"
   name "CruxShotter"
