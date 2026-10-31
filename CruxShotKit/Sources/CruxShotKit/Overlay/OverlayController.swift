@@ -134,7 +134,8 @@ public final class OverlayController {
     func overlayClaimsMouse(atLocal p: CGPoint, in view: OverlayView) -> Bool {
         guard model.phase == .adjusting else { return true }
         if let tb = toolbar, tb.superview === view,
-           tb.frame.contains(p) || tb.toolRack.frame.contains(p) { return false }
+           tb.frame.contains(p) || tb.toolRack.frame.contains(p) ||
+           (!tb.propertyBar.isHidden && tb.propertyBar.frame.contains(p)) { return false }
         let g = view.global(p)
         if isGeometryEditable, let r = model.rect {
             if geometryHandle(at: g, in: r) != nil { return true }
@@ -155,16 +156,6 @@ public final class OverlayController {
             updateAdjustingCursor(at: g)
             refresh()
         }
-    }
-
-    /// Reveal crop handles only while the pointer approaches its border, or during a resize.
-    func showsGeometryHandles(in rect: CGRect) -> Bool {
-        guard isGeometryEditable else { return false }
-        if case .resize = geometryDrag { return true }
-        let reach: CGFloat = 14
-        guard rect.insetBy(dx: -reach, dy: -reach).contains(cursor) else { return false }
-        return abs(cursor.x - rect.minX) <= reach || abs(cursor.x - rect.maxX) <= reach ||
-            abs(cursor.y - rect.minY) <= reach || abs(cursor.y - rect.maxY) <= reach
     }
 
     func mouseDown(at g: CGPoint, clickCount: Int) {
@@ -197,6 +188,7 @@ public final class OverlayController {
             // controls are hidden until the single undoable crop change commits on mouse-up.
             toolbar?.removeFromSuperview()
             toolbar?.toolRack.removeFromSuperview()
+            toolbar?.propertyBar.removeFromSuperview()
             if let host = canvasHost { host.window?.makeFirstResponder(host) }
         }
     }
@@ -244,7 +236,8 @@ public final class OverlayController {
     private func updateAdjustingCursor(at g: CGPoint) {
         guard !windows.isEmpty, let rect = model.rect else { return }
         if let tb = toolbar, let host = canvasHost, host.display.frame.contains(g),
-           tb.frame.contains(host.local(g)) || tb.toolRack.frame.contains(host.local(g)) {
+           tb.frame.contains(host.local(g)) || tb.toolRack.frame.contains(host.local(g)) ||
+           (!tb.propertyBar.isHidden && tb.propertyBar.frame.contains(host.local(g))) {
             NSCursor.arrow.set()
         } else if isGeometryEditable, let handle = geometryHandle(at: g, in: rect) {
             switch handle {
@@ -275,6 +268,7 @@ public final class OverlayController {
     // MARK: Keyboard
 
     func handleKey(_ event: NSEvent) -> Bool {
+        if model.phase == .adjusting, canvas?.handleLineWidthKey(event) == true { return true }
         guard let action = OverlayKeyMap.action(
             keyCode: event.keyCode, characters: event.charactersIgnoringModifiers,
             modifiers: event.modifierFlags, phase: model.phase,
@@ -391,6 +385,15 @@ public final class OverlayController {
             let global = CGPoint(x: frame.minX + point.x, y: frame.maxY - point.y)
             self.mouseMoved(to: global)
         }
+        cv.onLineWidthStep = { [weak self, weak cv] delta, point in
+            guard let self, let cv else { return }
+            let current = cv.selectedAnnotationStyle?.lineWidth ?? cv.style.lineWidth
+            let next = current.stepped(by: delta)
+            self.preferences.lastLineWidth = next
+            cv.applyLineWidth(next)
+            cv.showLineWidth(next, near: point)
+            self.updateToolbar()
+        }
         if cv.superview !== host {
             cv.removeFromSuperview()
             host.addSubview(cv, positioned: .below, relativeTo: host.magnifier)
@@ -412,6 +415,7 @@ public final class OverlayController {
         guard let host = canvasHost, let toolbar else { return }
         if toolbar.superview !== host { host.addSubview(toolbar) }
         if toolbar.toolRack.superview !== host { host.addSubview(toolbar.toolRack) }
+        if toolbar.propertyBar.superview !== host { host.addSubview(toolbar.propertyBar) }
     }
 
     private func syncSelectionFromDocument() {
@@ -484,7 +488,8 @@ public final class OverlayController {
         tb.update(tool: canvas?.tool, color: selectedStyle?.color ?? preferences.lastColor,
                   lineWidth: selectedStyle?.lineWidth ?? preferences.lastLineWidth,
                   mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo,
-                  arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas?.selectedArrowStyle)
+                  arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas?.selectedArrowStyle,
+                  hasSelection: canvas?.selectedID != nil)
         layoutToolbar()
     }
 
@@ -493,9 +498,11 @@ public final class OverlayController {
         guard let tb = toolbar, let host = canvasHost, let cv = canvas else { return }
         let visible = host.window?.screen.map { host.local($0.visibleFrame) } ?? host.bounds
         let layout = ToolbarLayout(selection: cv.frame, available: visible.intersection(host.bounds),
-                                   toolSize: tb.toolRack.fittingSize, actionSize: tb.fittingSize)
+                                   toolSize: tb.toolRack.fittingSize, actionSize: tb.fittingSize,
+                                   propertySize: tb.propertyBar.fittingSize)
         tb.frame = layout.actions
         tb.toolRack.frame = layout.tools
+        tb.propertyBar.frame = layout.properties
     }
 
     /// With a drawing tool active, only the handles and the band outside the border resize, so

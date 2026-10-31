@@ -19,7 +19,16 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     /// end a text edit. The overlay uses it for "double-click to copy".
     public var onDoubleClick: (() -> Void)?
     var onHover: ((CGPoint) -> Void)?
+    var onLineWidthStep: ((Int, CGPoint) -> Void)?
     public var isEditingText: Bool { textView != nil }
+    private var canAdjustLineWidth: Bool {
+        if let tool { return tool == .rect || tool == .arrow || tool == .pen }
+        guard let id = validSelectedID, let annotation = document.annotations.first(where: { $0.id == id }) else { return false }
+        switch annotation.kind {
+        case .rect, .arrow, .pen: return true
+        default: return false
+        }
+    }
     var canDoubleClickCopy: Bool { !isEditingText && !clickSequenceEndedEditing }
     public var selectedAnnotationStyle: AnnotationStyle? {
         guard let id = validSelectedID else { return nil }
@@ -42,6 +51,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     private var textOrigin: CGPoint = .zero
     private var preferredTextOrigin: CGPoint = .zero
     private var lastSelectionPoint: CGPoint?
+    private var widthHUD: LineWidthHUD?
+    private var widthHideWork: DispatchWorkItem?
     private var cancellable: AnyCancellable?
     /// The first click of the current click sequence committed an in-place text edit.
     private var clickSequenceEndedEditing = false
@@ -85,10 +96,35 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     public func applyLineWidth(_ width: LineWidth) {
         style.lineWidth = width
+        // A shape being dragged owns a snapshot of the style from mouse-down. Update that
+        // snapshot too, so both the live preview and mouse-up commit use the new width.
+        if draft != nil {
+            draft?.style.lineWidth = width
+            needsDisplay = true
+        }
+        if resizeDraft != nil {
+            resizeDraft?.style.lineWidth = width
+            needsDisplay = true
+        }
         if let id = validSelectedID, selectedAnnotationStyle?.lineWidth != width {
             document.update(id: id) { $0.style.lineWidth = width }
             changed()
         }
+    }
+
+    func showLineWidth(_ width: LineWidth, near point: CGPoint) {
+        let hud = widthHUD ?? LineWidthHUD(frame: CGRect(origin: .zero, size: CGSize(width: 78, height: 30)))
+        if hud.superview == nil { addSubview(hud) }
+        widthHUD = hud
+        hud.width = width
+        hud.frame.origin = CGPoint(x: min(max(bounds.minX, point.x + 16), max(bounds.minX, bounds.maxX - hud.frame.width)),
+                                   y: min(max(bounds.minY, point.y + 16), max(bounds.minY, bounds.maxY - hud.frame.height)))
+        hud.isHidden = false
+        hud.needsDisplay = true
+        widthHideWork?.cancel()
+        let work = DispatchWorkItem { [weak hud] in hud?.isHidden = true }
+        widthHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4, execute: work)
     }
 
     /// Arrow variants are changed explicitly so changing color/width never resets a selected arrow.
@@ -249,6 +285,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     // MARK: Keyboard
 
     public override func keyDown(with event: NSEvent) {
+        if handleLineWidthKey(event) { return }
         switch event.keyCode {
         case 51, 117:
             if let id = validSelectedID {
@@ -266,6 +303,29 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         default:
             super.keyDown(with: event)
         }
+    }
+
+    /// The overlay or pin can forward a shortcut here if it is first responder instead.
+    @discardableResult
+    func handleLineWidthKey(_ event: NSEvent) -> Bool {
+        guard canAdjustLineWidth,
+              event.modifierFlags.intersection([.command, .control, .option, .shift]) == [] else { return false }
+        let delta: Int
+        switch event.keyCode {
+        case 18, 33: delta = -1
+        case 19, 30: delta = 1
+        default: return false
+        }
+        onLineWidthStep?(delta, convert(window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil))
+        return true
+    }
+
+    public override func scrollWheel(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard modifiers.isEmpty, canAdjustLineWidth,
+              abs(event.scrollingDeltaY) > 0 else { super.scrollWheel(with: event); return }
+        onLineWidthStep?(event.scrollingDeltaY > 0 ? 1 : -1,
+                         convert(event.locationInWindow, from: nil))
     }
 
     // MARK: Text editing
@@ -368,5 +428,27 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         case .pen(let pts): return pts.count >= 2
         default: return true
         }
+    }
+}
+
+@MainActor
+private final class LineWidthHUD: NSView {
+    var width: LineWidth = .medium
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor(calibratedWhite: 0.985, alpha: 0.96).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 3, yRadius: 3).fill()
+        NSColor(calibratedWhite: 0.3, alpha: 0.22).setStroke()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3).stroke()
+        NSColor.controlAccentColor.setFill()
+        let line = NSRect(x: 9, y: (bounds.height - width.rawValue) / 2,
+                          width: 20, height: width.rawValue)
+        NSBezierPath(roundedRect: line, xRadius: width.rawValue / 2, yRadius: width.rawValue / 2).fill()
+        let label = "\(Int(width.rawValue)) pt" as NSString
+        label.draw(at: CGPoint(x: 37, y: 7), withAttributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: NSColor(calibratedWhite: 0.18, alpha: 1),
+        ])
     }
 }

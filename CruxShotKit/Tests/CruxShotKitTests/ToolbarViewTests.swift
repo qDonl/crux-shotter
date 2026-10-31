@@ -28,18 +28,26 @@ import Testing
             toolbar.update(tool: tool, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
                            canUndo: false, canRedo: false)
             let placement = ToolbarLayout(selection: responder.frame, available: content.bounds,
-                                          toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize)
+                                          toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize,
+                                          propertySize: toolbar.propertyBar.fittingSize)
             toolbar.frame = placement.actions
             toolbar.toolRack.frame = placement.tools
+            toolbar.propertyBar.frame = placement.properties
             content.layoutSubtreeIfNeeded()
             sizes.append(toolbar.fittingSize)
-            #expect(toolbar.fittingSize.width > 250 && toolbar.fittingSize.width < 450)
+            #expect(toolbar.fittingSize.width > 200 && toolbar.fittingSize.width < 300)
             #expect(toolbar.toolRack.fittingSize.width == 44)
             #expect(!placement.tools.intersects(placement.actions))
+            #expect(!placement.properties.intersects(placement.actions))
         }
         #expect(Set(sizes.map { $0.width }).count == 1)
         #expect(Set(sizes.map { $0.height }).count == 1)
         let buttons = descendants(toolbar.toolRack).compactMap { $0 as? ToolbarButton }
+        let actionButtons = descendants(toolbar).compactMap { $0 as? ToolbarButton }
+        #expect(actionButtons.allSatisfy { $0.title.isEmpty })
+        #expect(toolbar.colorChoices.count == PaletteColor.allCases.count)
+        #expect(toolbar.colorChoices.values.allSatisfy { $0.title.isEmpty && $0.toolTip != nil })
+        #expect(toolbar.colorPopover.contentViewController?.preferredContentSize.width ?? 0 > 100)
         let select = try #require(buttons.first { $0.toolTip == "选择 / 移动标注 (V)" })
         var selected = false
         toolbar.onCommand = { if case .select = $0 { selected = true } }
@@ -48,10 +56,12 @@ import Testing
         #expect(window.firstResponder === responder)
         toolbar.update(tool: .rect, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
                        canUndo: false, canRedo: false)
+        #expect(!toolbar.propertyBar.isHidden)
         content.layoutSubtreeIfNeeded()
         try snapshot(content, name: "split-editor-native")
         try snapshot(toolbar, name: "output-bar")
         try snapshot(toolbar.toolRack, name: "tool-rack")
+        try snapshot(toolbar.propertyBar, name: "property-bar")
     }
 
     @Test func settingsHaveSpaceForLongPathsAndFilenameTemplates() throws {

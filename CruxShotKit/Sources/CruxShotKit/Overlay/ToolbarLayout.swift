@@ -4,8 +4,10 @@ import CoreGraphics
 struct ToolbarLayout {
     let tools: CGRect
     let actions: CGRect
+    let properties: CGRect
 
-    init(selection: CGRect, available: CGRect, toolSize: CGSize, actionSize: CGSize) {
+    init(selection: CGRect, available: CGRect, toolSize: CGSize, actionSize: CGSize,
+         propertySize: CGSize = .zero) {
         let gap: CGFloat = 8
         let area = available.insetBy(dx: 6, dy: 6)
         func clamped(_ origin: CGPoint, _ size: CGSize) -> CGRect {
@@ -56,5 +58,31 @@ struct ToolbarLayout {
         }
         tools = best!.0
         actions = best!.1
+        if propertySize == .zero {
+            properties = .zero
+        } else {
+            let propertyXs = [selection.maxX - propertySize.width, selection.minX,
+                              area.maxX - propertySize.width, area.minX]
+            let propertyYs = [selection.maxY + gap, selection.minY - gap - propertySize.height,
+                              area.maxY - propertySize.height, area.minY]
+            var placement: (CGRect, (CGFloat, CGFloat, CGFloat))?
+            for x in propertyXs {
+                for y in propertyYs {
+                    let frame = clamped(CGPoint(x: x, y: y), propertySize)
+                    let collision = overlap(frame.insetBy(dx: -gap / 2, dy: -gap / 2), tools)
+                        + overlap(frame.insetBy(dx: -gap / 2, dy: -gap / 2), actions)
+                    let covered = overlap(frame, selection)
+                    let distance = abs(frame.maxX - selection.maxX) + abs(frame.minY - gap - selection.maxY)
+                    let score = (collision, covered, distance)
+                    if let old = placement?.1 {
+                        if score.0 < old.0 || (score.0 == old.0 &&
+                            (score.1 < old.1 || (score.1 == old.1 && score.2 < old.2))) {
+                            placement = (frame, score)
+                        }
+                    } else { placement = (frame, score) }
+                }
+            }
+            properties = placement!.0
+        }
     }
 }

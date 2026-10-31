@@ -26,7 +26,12 @@ public enum PaletteColor: String, CaseIterable, Sendable {
 }
 
 public enum LineWidth: CGFloat, CaseIterable, Sendable {
-    case thin = 2, medium = 4, thick = 8
+    case one = 1, thin = 2, three = 3, medium = 4, five = 5, six = 6
+    case seven = 7, thick = 8, nine = 9, ten = 10, eleven = 11, twelve = 12
+
+    public func stepped(by delta: Int) -> LineWidth {
+        LineWidth(rawValue: CGFloat(min(12, max(1, Int(rawValue) + delta)))) ?? self
+    }
 }
 
 public struct AnnotationStyle: Sendable, Equatable {

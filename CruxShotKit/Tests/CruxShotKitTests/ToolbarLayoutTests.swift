@@ -49,4 +49,20 @@ import Testing
             #expect(!layout.tools.intersects(crop) && !layout.actions.intersects(crop))
         }
     }
+
+    @Test func propertyBarStaysSeparateFromActionsAndTools() {
+        let screen = CGRect(x: 0, y: 0, width: 512, height: 384)
+        for crop in [CGRect(x: 180, y: 150, width: 2, height: 2),
+                     CGRect(x: 0, y: 0, width: 2, height: 2),
+                     CGRect(x: 510, y: 382, width: 2, height: 2),
+                     CGRect(x: 75, y: 40, width: 350, height: 300)] {
+            let layout = ToolbarLayout(selection: crop, available: screen,
+                                       toolSize: CGSize(width: 44, height: 253),
+                                       actionSize: CGSize(width: 235, height: 44),
+                                       propertySize: CGSize(width: 78, height: 44))
+            #expect(screen.contains(layout.properties))
+            #expect(!layout.properties.intersects(layout.tools))
+            #expect(!layout.properties.intersects(layout.actions))
+        }
+    }
 }

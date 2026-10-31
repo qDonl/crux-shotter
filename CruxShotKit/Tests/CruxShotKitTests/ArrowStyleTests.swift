@@ -119,18 +119,21 @@ import Testing
         #expect(doc.annotations == [a] && !doc.canUndo)
     }
 
-    @Test func menuOffersOnlySelectedVariantsAndRoutesToCurrentArrow() {
+    @Test func iconPickerOffersOnlySelectedVariantsAndRoutesToCurrentArrow() {
         let a = Annotation(kind: .arrow(from: .zero, to: CGPoint(x: 100, y: 30)), style: AnnotationStyle(arrowStyle: .dashed))
         let doc = document([a]), toolbar = ToolbarView()
         let canvas = CanvasView(document: doc)
         canvas.select(a.id)
         toolbar.update(tool: nil, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
                        canUndo: false, canRedo: false, selectedArrowStyle: canvas.selectedArrowStyle)
-        #expect(toolbar.arrowStyleMenu.items.map(\.title) == ArrowStyle.allCases.map(\.title))
-        #expect(toolbar.arrowStyleMenu.items.filter { $0.state == .on }.map(\.title) == [ArrowStyle.dashed.title])
+        #expect(toolbar.arrowStyleChoices.count == ArrowStyle.allCases.count)
+        #expect(toolbar.arrowStyleChoices.filter { $0.value.isActive }.map(\.key) == [.dashed])
+        #expect(toolbar.arrowStyleChoices.values.allSatisfy { $0.title.isEmpty && $0.toolTip != nil })
+        #expect(toolbar.arrowStylePopover.contentViewController?.preferredContentSize.width ?? 0 > 100)
+        #expect(toolbar.arrowStylePopover.contentViewController?.preferredContentSize.height ?? 0 > 100)
         toolbar.onCommand = { if case .arrowStyle(let style) = $0 { canvas.applyArrowStyle(style) } }
-        // Dispatch the native menu action in-process; no popup or external app is driven.
-        toolbar.arrowStyleMenu.performActionForItem(at: 5)
+        // Dispatch the picker action in-process; no popup or external app is driven.
+        toolbar.arrowStyleChoices[.handDrawn]?.performClick(nil)
         #expect(doc.annotations[0].style.arrowStyle == .handDrawn)
         #expect(canvas.selectedID == a.id)
         doc.undo()

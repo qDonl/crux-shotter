@@ -54,8 +54,8 @@ enum SelectionHandle: CaseIterable {
 @MainActor
 final class OverlayView: NSView {
     static let maskColor = NSColor.black.withAlphaComponent(0.4)
-    static let accent = NSColor(srgbRed: 0, green: 122 / 255, blue: 1, alpha: 1)
-    static let handleSide: CGFloat = 8
+    static let accent = NSColor.controlAccentColor
+    static let handleSide: CGFloat = 6
 
     let captured: CapturedFrame
     var display: DisplayInfo { captured.display }
@@ -117,12 +117,22 @@ final class OverlayView: NSView {
         }
 
         guard let selection, let globalRect = model.rect else { return }
-        ctx.setStrokeColor(Self.accent.cgColor)
+        ctx.setStrokeColor(Self.accent.withAlphaComponent(0.7).cgColor)
         ctx.setLineWidth(1)
         ctx.stroke(selection.insetBy(dx: -0.5, dy: -0.5))
-        if model.phase == .adjusting, controller.showsGeometryHandles(in: globalRect) {
-            for h in SelectionHandle.allCases {
+        if model.phase == .adjusting, controller.isGeometryEditable {
+            ctx.setStrokeColor(Self.accent.cgColor)
+            ctx.setLineWidth(2)
+            let cornerLength = min(12, selection.width / 3, selection.height / 3)
+            for h in [SelectionHandle.topLeft, .topRight, .bottomRight, .bottomLeft] {
                 let c = h.point(in: selection)
+                let dx: CGFloat = c.x == selection.minX ? cornerLength : -cornerLength
+                let dy: CGFloat = c.y == selection.minY ? cornerLength : -cornerLength
+                ctx.move(to: c)
+                ctx.addLine(to: CGPoint(x: c.x + dx, y: c.y))
+                ctx.move(to: c)
+                ctx.addLine(to: CGPoint(x: c.x, y: c.y + dy))
+                ctx.strokePath()
                 let s = Self.handleSide
                 let box = CGRect(x: c.x - s / 2, y: c.y - s / 2, width: s, height: s)
                 ctx.setFillColor(.white)

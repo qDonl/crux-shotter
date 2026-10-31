@@ -18,25 +18,27 @@ final class ToolbarView: ToolbarSurface {
     enum Variant { case overlay, pinEdit }
 
     let toolRack = ToolbarSurface()
+    let propertyBar = ToolbarSurface()
     var onCommand: ((ToolbarCommand) -> Void)?
     private var toolButtons: [CanvasTool: ToolbarButton] = [:]
-    private var colorButtons: [PaletteColor: ToolbarButton] = [:]
-    private var widthButtons: [LineWidth: ToolbarButton] = [:]
     private var mosaicButtons: [MosaicMode: ToolbarButton] = [:]
     private var selectButton: ToolbarButton!
     private var arrowStyleButton: ToolbarButton!
-    let arrowStyleMenu = NSMenu()
+    private var swatchButton: ToolbarButton!
+    let arrowStylePopover = NSPopover()
+    let colorPopover = NSPopover()
+    private(set) var arrowStyleChoices: [ArrowStyle: ToolbarButton] = [:]
+    private(set) var colorChoices: [PaletteColor: ToolbarButton] = [:]
     private var undoButton: ToolbarButton!
     private var redoButton: ToolbarButton!
-    private let properties = NSStackView()
     private let styles = NSStackView()
     private let mosaic = NSStackView()
-    private let toolLabel = NSTextField(labelWithString: "选择")
 
     init(variant: Variant = .overlay) {
         super.init(frame: .zero)
         setAccessibilityLabel("输出与样式")
         toolRack.setAccessibilityLabel("绘图工具")
+        propertyBar.setAccessibilityLabel("当前工具属性")
         selectButton = ToolbarButton(symbol: "cursorarrow", tooltip: "选择 / 移动标注 (V)") { [weak self] in
             self?.onCommand?(.select)
         }
@@ -59,66 +61,63 @@ final class ToolbarView: ToolbarSurface {
         if variant == .overlay { actions.append(button("pin", "贴图 (⌘T)", .pin)) }
         actions.append(button("square.and.arrow.down", "保存 (⌘S)", .save))
         if variant == .overlay {
-            actions.append(ToolbarButton(title: "复制 ↩", primary: true) { [weak self] in self?.onCommand?(.action(.copy)) })
+            actions.append(ToolbarButton(symbol: "doc.on.doc", tooltip: "复制截图 (Enter)", primary: true) { [weak self] in
+                self?.onCommand?(.action(.copy))
+            })
         } else {
             actions.append(button("doc.on.doc", "复制 (⌘C)", .copy))
             actions.append(ToolbarButton(symbol: "xmark", tooltip: "取消本次修改 (Esc)") { [weak self] in
                 self?.onCommand?(.discard)
             })
-            actions.append(ToolbarButton(title: "完成 ↩", primary: true) { [weak self] in self?.onCommand?(.done) })
+            actions.append(ToolbarButton(symbol: "checkmark", tooltip: "完成编辑 (Enter)", primary: true) { [weak self] in
+                self?.onCommand?(.done)
+            })
         }
         arrowStyleButton = ToolbarButton(image: Self.arrowPreview(.classic), tooltip: "箭头样式：经典实心") { [weak self] in
             guard let self else { return }
-            arrowStyleMenu.popUp(positioning: arrowStyleMenu.items.first { $0.state == .on },
-                                 at: NSPoint(x: 0, y: arrowStyleButton.bounds.maxY), in: arrowStyleButton)
+            arrowStylePopover.show(relativeTo: arrowStyleButton.bounds, of: arrowStyleButton, preferredEdge: .maxY)
         }
-        arrowStyleMenu.autoenablesItems = false
         for style in ArrowStyle.allCases {
-            let item = NSMenuItem(title: style.title, action: #selector(selectArrowStyle(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = style.rawValue
-            item.image = Self.arrowPreview(style)
-            arrowStyleMenu.addItem(item)
+            let choice = ToolbarButton(image: Self.arrowPreview(style), tooltip: style.title, width: 54) { [weak self] in
+                self?.arrowStylePopover.performClose(nil)
+                self?.onCommand?(.arrowStyle(style))
+            }
+            arrowStyleChoices[style] = choice
         }
-        styles.addArrangedSubview(arrowStyleButton)
+        arrowStylePopover.behavior = .transient
+        arrowStylePopover.animates = false
+        arrowStylePopover.contentViewController = Self.picker(ArrowStyle.allCases.compactMap { arrowStyleChoices[$0] }, columns: 2)
+        swatchButton = ToolbarButton(image: Self.swatch(.red), tooltip: "颜色：红色") { [weak self] in
+            guard let self else { return }
+            colorPopover.show(relativeTo: swatchButton.bounds, of: swatchButton, preferredEdge: .maxY)
+        }
         for color in PaletteColor.allCases {
-            let b = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color)) { [weak self] in
+            let choice = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color)) { [weak self] in
+                self?.colorPopover.performClose(nil)
                 self?.onCommand?(.color(color))
             }
-            colorButtons[color] = b
-            styles.addArrangedSubview(b)
+            colorChoices[color] = choice
         }
-        styles.addArrangedSubview(Self.separator())
-        for width in LineWidth.allCases {
-            let b = ToolbarButton(title: "\(Int(width.rawValue))") { [weak self] in self?.onCommand?(.lineWidth(width)) }
-            b.toolTip = "线宽 \(Int(width.rawValue))pt"
-            b.setAccessibilityLabel(b.toolTip)
-            widthButtons[width] = b
-            styles.addArrangedSubview(b)
-        }
-        for (mode, title) in [(MosaicMode.pixelate, "像素化"), (.blur, "模糊")] {
-            let b = ToolbarButton(title: title) { [weak self] in self?.onCommand?(.mosaicMode(mode)) }
+        colorPopover.behavior = .transient
+        colorPopover.animates = false
+        colorPopover.contentViewController = Self.picker(PaletteColor.allCases.compactMap { colorChoices[$0] }, columns: 3)
+        styles.addArrangedSubview(swatchButton)
+        styles.addArrangedSubview(arrowStyleButton)
+        for (mode, symbol, title) in [(MosaicMode.pixelate, "square.grid.3x3.fill", "像素化"),
+                                      (.blur, "circle.dotted", "模糊")] {
+            let b = ToolbarButton(symbol: symbol, tooltip: title) { [weak self] in self?.onCommand?(.mosaicMode(mode)) }
             mosaicButtons[mode] = b
             mosaic.addArrangedSubview(b)
         }
         for row in [styles, mosaic] { row.orientation = .horizontal; row.spacing = 2 }
-        // Reserve one property row so changing tools never moves the output actions.
+        let properties = NSStackView(views: [styles, mosaic])
         properties.orientation = .horizontal
         properties.alignment = .centerY
-        properties.addArrangedSubview(toolLabel)
-        properties.addArrangedSubview(styles)
-        properties.addArrangedSubview(mosaic)
-        toolLabel.font = .systemFont(ofSize: 11)
-        toolLabel.textColor = .secondaryLabelColor
-        toolLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        Self.install(properties, in: propertyBar, orientation: .horizontal)
         let actionRow = NSStackView(views: actions)
         actionRow.orientation = .horizontal
         actionRow.spacing = 2
-        let stack = NSStackView(views: [actionRow, properties])
-        Self.install(stack, in: self, orientation: .vertical)
-        properties.heightAnchor.constraint(equalToConstant: Self.buttonSide).isActive = true
-        properties.widthAnchor.constraint(greaterThanOrEqualToConstant: styles.fittingSize.width).isActive = true
-        styles.isHidden = true
+        Self.install(actionRow, in: self, orientation: .horizontal)
         mosaic.isHidden = true
     }
 
@@ -126,11 +125,14 @@ final class ToolbarView: ToolbarSurface {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func update(tool: CanvasTool?, color: PaletteColor, lineWidth: LineWidth, mosaicMode: MosaicMode,
-                canUndo: Bool, canRedo: Bool, arrowStyle: ArrowStyle = .classic, selectedArrowStyle: ArrowStyle? = nil) {
+                canUndo: Bool, canRedo: Bool, arrowStyle: ArrowStyle = .classic,
+                selectedArrowStyle: ArrowStyle? = nil, hasSelection: Bool = false) {
         selectButton.isActive = tool == nil
         for (t, b) in toolButtons { b.isActive = t == tool }
-        for (c, b) in colorButtons { b.isActive = c == color }
-        for (w, b) in widthButtons { b.isActive = w == lineWidth }
+        swatchButton.image = Self.swatch(color)
+        swatchButton.toolTip = "颜色：\(Self.colorName(color))；线宽 \(Int(lineWidth.rawValue))pt（1/2 调整）"
+        swatchButton.setAccessibilityLabel(swatchButton.toolTip)
+        for (choice, button) in colorChoices { button.isActive = choice == color }
         for (m, b) in mosaicButtons { b.isActive = m == mosaicMode }
         undoButton.isEnabled = canUndo
         redoButton.isEnabled = canRedo
@@ -140,17 +142,29 @@ final class ToolbarView: ToolbarSurface {
         arrowStyleButton.image = Self.arrowPreview(currentArrow)
         arrowStyleButton.toolTip = "箭头样式：\(currentArrow.title)"
         arrowStyleButton.setAccessibilityLabel(arrowStyleButton.toolTip)
-        for item in arrowStyleMenu.items { item.state = item.representedObject as? String == currentArrow.rawValue ? .on : .off }
-        styles.isHidden = (tool == nil && !displaysArrow) || tool == .mosaic
+        for (choice, button) in arrowStyleChoices { button.isActive = choice == currentArrow }
+        styles.isHidden = tool == .mosaic
         mosaic.isHidden = tool != .mosaic
-        toolLabel.isHidden = tool != nil || displaysArrow
-        toolLabel.stringValue = "选择模式 · V 选择 · R 矩形 · Esc 退出"
+        propertyBar.isHidden = tool == nil && !hasSelection
         layoutSubtreeIfNeeded()
     }
 
-    @objc private func selectArrowStyle(_ sender: NSMenuItem) {
-        guard let value = sender.representedObject as? String, let style = ArrowStyle(rawValue: value) else { return }
-        onCommand?(.arrowStyle(style))
+    private static func picker(_ buttons: [ToolbarButton], columns: Int) -> NSViewController {
+        let rows = stride(from: 0, to: buttons.count, by: columns).map { offset in
+            let row = NSStackView(views: Array(buttons[offset..<min(offset + columns, buttons.count)]))
+            row.orientation = .horizontal
+            row.spacing = 4
+            return row
+        }
+        let stack = NSStackView(views: rows)
+        stack.orientation = .vertical
+        stack.spacing = 4
+        let surface = ToolbarSurface()
+        install(stack, in: surface, orientation: .vertical)
+        let controller = NSViewController()
+        controller.view = surface
+        controller.preferredContentSize = surface.fittingSize
+        return controller
     }
 
     private static func arrowPreview(_ style: ArrowStyle) -> NSImage {
@@ -217,14 +231,14 @@ final class ToolbarView: ToolbarSurface {
     }
 }
 
-/// A quiet, opaque surface keeps controls readable over any screenshot.
+/// Light, narrow control rails remain legible without forming a dark block over the capture.
 @MainActor
 class ToolbarSurface: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
-        appearance = NSAppearance(named: .darkAqua)
+        appearance = NSAppearance(named: .aqua)
         wantsLayer = true
-        layer?.cornerRadius = 8
+        layer?.cornerRadius = 3
         layer?.masksToBounds = true
     }
 
@@ -234,10 +248,10 @@ class ToolbarSurface: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
-        NSColor.separatorColor.setStroke()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8).stroke()
+        NSColor(calibratedWhite: 0.985, alpha: 0.96).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 3, yRadius: 3).fill()
+        NSColor(calibratedWhite: 0.3, alpha: 0.22).setStroke()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3).stroke()
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -254,19 +268,20 @@ final class ToolbarButton: NSButton {
     }
     override var isEnabled: Bool { didSet { alphaValue = isEnabled ? 1 : 0.35; needsDisplay = true } }
 
-    convenience init(symbol: String, tooltip: String, handler: @escaping () -> Void) {
+    convenience init(symbol: String, tooltip: String, primary: Bool = false, handler: @escaping () -> Void) {
         self.init(image: NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip),
-                  tooltip: tooltip, handler: handler)
+                  tooltip: tooltip, primary: primary, handler: handler)
     }
 
-    init(image: NSImage?, tooltip: String, handler: @escaping () -> Void) {
+    init(image: NSImage?, tooltip: String, primary: Bool = false, width: CGFloat = ToolbarView.buttonSide,
+         handler: @escaping () -> Void) {
         self.handler = handler
-        primary = false
+        self.primary = primary
         super.init(frame: .zero)
         title = ""
         self.image = image
         imagePosition = .imageOnly
-        configure(width: ToolbarView.buttonSide, tooltip: tooltip)
+        configure(width: width, tooltip: tooltip)
     }
 
     init(title: String, primary: Bool = false, handler: @escaping () -> Void) {
@@ -289,7 +304,7 @@ final class ToolbarButton: NSButton {
         isBordered = false
         setButtonType(.momentaryChange)
         bezelStyle = .regularSquare
-        contentTintColor = primary ? .white : .labelColor
+        contentTintColor = primary ? .controlAccentColor : .labelColor
         refusesFirstResponder = true
         target = self
         action = #selector(fire)
@@ -310,10 +325,14 @@ final class ToolbarButton: NSButton {
     override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
     override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
-        let color: NSColor = primary ? .controlAccentColor : isActive ? .selectedContentBackgroundColor
-            : isHighlighted ? .quaternaryLabelColor : hovered && isEnabled ? .quinaryLabel : .clear
+        let color: NSColor = isHighlighted ? NSColor.black.withAlphaComponent(0.10)
+            : hovered && isEnabled ? NSColor.black.withAlphaComponent(0.06) : .clear
         color.setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5).fill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3).fill()
+        if isActive {
+            NSColor.controlAccentColor.setFill()
+            NSRect(x: 7, y: 1, width: bounds.width - 14, height: 2).fill()
+        }
         super.draw(dirtyRect)
     }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
