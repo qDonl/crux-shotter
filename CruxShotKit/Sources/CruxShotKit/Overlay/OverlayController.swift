@@ -339,7 +339,7 @@ public final class OverlayController {
     }
 
     private var currentStyle: AnnotationStyle {
-        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth)
+        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth, arrowStyle: preferences.lastArrowStyle)
     }
 
     private func setTool(_ tool: CanvasTool?) {
@@ -359,11 +359,15 @@ public final class OverlayController {
             setTool(canvas?.tool == tool ? nil : tool)
         case .color(let color):
             preferences.lastColor = color
-            canvas?.applyStyle(currentStyle)
+            canvas?.applyColor(color)
             updateToolbar()
         case .lineWidth(let width):
             preferences.lastLineWidth = width
-            canvas?.applyStyle(currentStyle)
+            canvas?.applyLineWidth(width)
+            updateToolbar()
+        case .arrowStyle(let style):
+            preferences.lastArrowStyle = style
+            canvas?.applyArrowStyle(style)
             updateToolbar()
         case .mosaicMode(let mode):
             preferences.mosaicMode = mode
@@ -381,8 +385,11 @@ public final class OverlayController {
 
     private func updateToolbar() {
         guard let tb = toolbar, let document else { return }
-        tb.update(tool: canvas?.tool, color: preferences.lastColor, lineWidth: preferences.lastLineWidth,
-                  mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo)
+        let selectedStyle = canvas?.selectedAnnotationStyle
+        tb.update(tool: canvas?.tool, color: selectedStyle?.color ?? preferences.lastColor,
+                  lineWidth: selectedStyle?.lineWidth ?? preferences.lastLineWidth,
+                  mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo,
+                  arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas?.selectedArrowStyle)
         layoutToolbar()
     }
 

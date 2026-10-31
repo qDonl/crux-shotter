@@ -24,7 +24,7 @@ import Testing
         content.addSubview(toolbar.toolRack)
         window.makeFirstResponder(responder)
         var sizes: [CGSize] = []
-        for tool in [nil, CanvasTool.rect, .text, .mosaic] {
+        for tool in [nil, CanvasTool.rect, .arrow, .text, .mosaic] {
             toolbar.update(tool: tool, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
                            canUndo: false, canRedo: false)
             let placement = ToolbarLayout(selection: responder.frame, available: content.bounds,

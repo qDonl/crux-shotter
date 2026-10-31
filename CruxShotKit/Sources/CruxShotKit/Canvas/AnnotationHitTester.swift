@@ -17,7 +17,8 @@ public enum AnnotationHitTester {
         case .mosaic(let r, _):
             return r.contains(p)
         case .arrow(let from, let to):
-            return distance(from: p, toSegment: from, to) <= reach
+            return ArrowGeometry(from: from, to: to, style: a.style.arrowStyle,
+                                 lineWidth: a.style.lineWidth.rawValue, bend: a.arrowBend).contains(p, tolerance: tolerance)
         case .pen(let pts):
             if pts.count == 1 { return hypot(p.x - pts[0].x, p.y - pts[0].y) <= reach }
             return zip(pts, pts.dropFirst()).contains { distance(from: p, toSegment: $0, $1) <= reach }

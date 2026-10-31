@@ -1,7 +1,7 @@
 import CoreGraphics
 
 public enum ResizeHandle: CaseIterable, Sendable {
-    case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left, arrowStart, arrowEnd
+    case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left, arrowStart, arrowEnd, arrowBend
 }
 
 /// Pure resize geometry (image points, top-left origin). Only rect, mosaic and arrow are resizable.
@@ -18,7 +18,11 @@ public enum AnnotationResizer {
                 (.bottomLeft, CGPoint(x: r.minX, y: r.maxY)), (.left, CGPoint(x: r.minX, y: r.midY)),
             ]
         case .arrow(let f, let t):
-            return [(.arrowStart, f), (.arrowEnd, t)]
+            var handles: [(ResizeHandle, CGPoint)] = [(.arrowStart, f), (.arrowEnd, t)]
+            if a.style.arrowStyle == .handDrawn, f != t {
+                handles.append((.arrowBend, ArrowGeometry.bendHandle(from: f, to: t, bend: a.arrowBend)))
+            }
+            return handles
         default:
             return []
         }
@@ -38,6 +42,7 @@ public enum AnnotationResizer {
         case .arrow(let f, let t):
             if handle == .arrowStart { copy.kind = .arrow(from: p, to: t) }
             else if handle == .arrowEnd { copy.kind = .arrow(from: f, to: p) }
+            else if handle == .arrowBend { copy.arrowBend = ArrowGeometry.bend(from: f, to: t, through: p) }
         default: break
         }
         return copy

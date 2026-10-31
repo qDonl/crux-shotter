@@ -218,9 +218,12 @@ private final class UpdateURLProtocol: URLProtocol, @unchecked Sendable {
 @Suite struct LiveUpdateTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["CRUXSHOT_LIVE_UPDATE_TEST"] == "1"))
     func publicReleaseCanBeDetectedWithoutCredentials() async throws {
-        let update = try #require(await GitHubReleaseService().availableUpdate(currentVersion: "0.0.0-alpha"))
+        let environment = ProcessInfo.processInfo.environment
+        let current = environment["CRUXSHOT_UPDATE_TEST_CURRENT_VERSION"] ?? "0.0.0-alpha"
+        let update = try #require(await GitHubReleaseService().availableUpdate(currentVersion: current))
+        if let expected = environment["CRUXSHOT_UPDATE_TEST_EXPECTED_VERSION"] { #expect(update.version == expected) }
         #expect(update.downloadURL.host == "github.com")
         #expect(update.downloadURL.pathExtension == "dmg")
-        #expect(ReleaseVersion(update.version)! > ReleaseVersion("0.0.0-alpha")!)
+        #expect(ReleaseVersion(update.version)! > ReleaseVersion(current)!)
     }
 }

@@ -33,11 +33,14 @@ public struct AnnotationStyle: Sendable, Equatable {
     public var color: PaletteColor
     public var lineWidth: LineWidth
     public var fontSize: CGFloat
+    public var arrowStyle: ArrowStyle
 
-    public init(color: PaletteColor = .red, lineWidth: LineWidth = .medium, fontSize: CGFloat = 18) {
+    public init(color: PaletteColor = .red, lineWidth: LineWidth = .medium, fontSize: CGFloat = 18,
+                arrowStyle: ArrowStyle = .classic) {
         self.color = color
         self.lineWidth = lineWidth
         self.fontSize = fontSize
+        self.arrowStyle = arrowStyle
     }
 }
 
@@ -58,11 +61,14 @@ public struct Annotation: Identifiable, Sendable, Equatable {
     public let id: UUID
     public var kind: AnnotationKind
     public var style: AnnotationStyle
+    /// Signed curvature relative to arrow length; only used by hand-drawn arrows.
+    public var arrowBend: CGFloat
 
-    public init(id: UUID = UUID(), kind: AnnotationKind, style: AnnotationStyle = AnnotationStyle()) {
+    public init(id: UUID = UUID(), kind: AnnotationKind, style: AnnotationStyle = AnnotationStyle(), arrowBend: CGFloat = -0.18) {
         self.id = id
         self.kind = kind
         self.style = style
+        self.arrowBend = arrowBend
     }
 
     /// Text annotation font; shared by the renderer, `bounds` and the in-place editor.
@@ -99,13 +105,15 @@ public struct Annotation: Identifiable, Sendable, Equatable {
         return copy
     }
 
-    /// Geometric bounds in image coordinates (points, top-left origin), without stroke padding.
+    /// Bounds in image coordinates (points, top-left origin). Arrows include their visible heads and strokes.
     public var bounds: CGRect {
         switch kind {
         case .rect(let r), .mosaic(let r, _):
             return r
         case .arrow(let a, let b):
-            return Self.box(of: [a, b])
+            let bounds = ArrowGeometry(from: a, to: b, style: style.arrowStyle,
+                                       lineWidth: style.lineWidth.rawValue, bend: arrowBend).bounds
+            return bounds.isNull ? CGRect(origin: a, size: .zero) : bounds
         case .pen(let pts):
             return Self.box(of: pts)
         case .text(let o, let s):

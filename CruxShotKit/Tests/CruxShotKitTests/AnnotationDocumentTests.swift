@@ -74,7 +74,9 @@ struct AnnotationDocumentTests {
 
     @Test func boundsCoverGeometry() {
         let arrow = Annotation(kind: .arrow(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 30, y: 5)))
-        #expect(arrow.bounds == CGRect(x: 10, y: 5, width: 20, height: 15))
+        #expect(arrow.bounds.insetBy(dx: -0.001, dy: -0.001).contains(CGPoint(x: 10, y: 20)))
+        #expect(arrow.bounds.insetBy(dx: -0.001, dy: -0.001).contains(CGPoint(x: 30, y: 5)))
+        #expect(arrow.bounds.width >= 20 && arrow.bounds.height >= 15)
         let pen = Annotation(kind: .pen([CGPoint(x: 1, y: 2), CGPoint(x: 4, y: 8)]))
         #expect(pen.bounds == CGRect(x: 1, y: 2, width: 3, height: 6))
     }

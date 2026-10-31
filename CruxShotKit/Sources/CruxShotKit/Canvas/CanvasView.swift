@@ -19,6 +19,15 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     /// end a text edit. The overlay uses it for "double-click to copy".
     public var onDoubleClick: (() -> Void)?
     public var isEditingText: Bool { textView != nil }
+    public var selectedAnnotationStyle: AnnotationStyle? {
+        guard let id = validSelectedID else { return nil }
+        return document.annotations.first { $0.id == id }?.style
+    }
+    public var selectedArrowStyle: ArrowStyle? {
+        guard let id = validSelectedID, let a = document.annotations.first(where: { $0.id == id }),
+              case .arrow = a.kind else { return nil }
+        return a.style.arrowStyle
+    }
 
     private(set) var selectedID: Annotation.ID?
     private var draft: Annotation?
@@ -49,11 +58,41 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     // MARK: Public API
 
-    /// Sets the style for new shapes and, if something is selected, applies it to that annotation.
+    /// Sets the drawing style; selected annotations keep their arrow variant, changed via `applyArrowStyle`.
     public func applyStyle(_ newStyle: AnnotationStyle) {
         style = newStyle
         if let id = validSelectedID {
-            document.update(id: id) { $0.style = newStyle }
+            document.update(id: id) {
+                let arrowStyle = $0.style.arrowStyle
+                $0.style = newStyle
+                $0.style.arrowStyle = arrowStyle
+            }
+            changed()
+        }
+    }
+
+    public func applyColor(_ color: PaletteColor) {
+        style.color = color
+        if let id = validSelectedID, selectedAnnotationStyle?.color != color {
+            document.update(id: id) { $0.style.color = color }
+            changed()
+        }
+    }
+
+    public func applyLineWidth(_ width: LineWidth) {
+        style.lineWidth = width
+        if let id = validSelectedID, selectedAnnotationStyle?.lineWidth != width {
+            document.update(id: id) { $0.style.lineWidth = width }
+            changed()
+        }
+    }
+
+    /// Arrow variants are changed explicitly so changing color/width never resets a selected arrow.
+    public func applyArrowStyle(_ arrowStyle: ArrowStyle) {
+        style.arrowStyle = arrowStyle
+        if let id = validSelectedID, selectedArrowStyle != nil,
+           document.annotations.first(where: { $0.id == id })?.style.arrowStyle != arrowStyle {
+            document.update(id: id) { $0.style.arrowStyle = arrowStyle }
             changed()
         }
     }
@@ -168,8 +207,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         } else if let draftResize = resizeDraft {
             resizeHandle = nil
             resizeDraft = nil
-            if let id = validSelectedID, document.annotations.first(where: { $0.id == id })?.kind != draftResize.kind {
-                document.update(id: id) { $0.kind = draftResize.kind }
+            if let id = validSelectedID, document.annotations.first(where: { $0.id == id }) != draftResize {
+                document.update(id: id) { $0 = draftResize }
                 changed()
             }
             needsDisplay = true
@@ -257,10 +296,11 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         return nil
     }
 
-    private func select(_ id: Annotation.ID?) {
+    func select(_ id: Annotation.ID?) {
         guard selectedID != id else { return }
         selectedID = id
         needsDisplay = true
+        onChange?()
     }
 
     private func changed() {

@@ -56,7 +56,7 @@ public enum AnnotationRenderer {
         case .rect(let r):
             ctx.stroke(r)
         case .arrow(let from, let to):
-            drawArrow(from: from, to: to, lineWidth: lw, in: ctx)
+            ArrowGeometry(from: from, to: to, style: a.style.arrowStyle, lineWidth: lw, bend: a.arrowBend).draw(in: ctx)
         case .pen(let pts):
             guard let first = pts.first else { return }
             if pts.count == 1 {
@@ -74,26 +74,6 @@ public enum AnnotationRenderer {
         case .mosaic(let rect, let mode):
             drawMosaic(rect, mode: mode, source: source, scale: scale, in: ctx)
         }
-    }
-
-    private static func drawArrow(from: CGPoint, to: CGPoint, lineWidth lw: CGFloat, in ctx: CGContext) {
-        let dx = to.x - from.x, dy = to.y - from.y
-        let len = hypot(dx, dy)
-        guard len > 0 else { return }
-        let ux = dx / len, uy = dy / len
-        let headLen = min(max(4 * lw, 12), len)
-        let halfWidth = max(4 * lw, 12) * 0.5
-        let base = CGPoint(x: to.x - ux * headLen, y: to.y - uy * headLen)
-        // Shaft stops inside the head so the tip stays sharp.
-        let shaftEnd = CGPoint(x: to.x - ux * headLen * 0.8, y: to.y - uy * headLen * 0.8)
-        ctx.move(to: from)
-        ctx.addLine(to: shaftEnd)
-        ctx.strokePath()
-        ctx.move(to: to)
-        ctx.addLine(to: CGPoint(x: base.x - uy * halfWidth, y: base.y + ux * halfWidth))
-        ctx.addLine(to: CGPoint(x: base.x + uy * halfWidth, y: base.y - ux * halfWidth))
-        ctx.closePath()
-        ctx.fillPath()
     }
 
     /// The context is already top-left/flipped, so a flipped NSGraphicsContext keeps glyphs upright.

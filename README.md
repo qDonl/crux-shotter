@@ -2,9 +2,11 @@
 
 CruxShotter 是一个 macOS 14+ 的菜单栏截图工具：区域/全屏截图、标注、贴图、文字识别（OCR）。使用 Swift 6、AppKit 与 SwiftUI 构建。
 
-## 安装（0.0.3-alpha）
+箭头标注支持经典实心、精细开口、渐粗聚焦、双向对照、虚线关联和手绘弧箭。选择箭头工具后，点击属性行的箭头样式按钮切换；手绘弧箭选中后可拖动中间控制点调整弯曲。截图和贴图编辑使用同一套样式，最近使用的样式会保留。
 
-1. 从 GitHub Release 下载 `CruxShotter-0.0.3-alpha.dmg`：
+## 安装（0.0.4-alpha）
+
+1. 从 GitHub Release 下载 `CruxShotter-0.0.4-alpha.dmg`：
    <https://github.com/qDonl/crux-shotter/releases>
 2. 打开 DMG，把 CruxShotter 拖到「应用程序」。
 3. 首次打开会被 Gatekeeper 拦截：alpha 版本是 ad-hoc 签名、未经公证。打开「系统设置 › 隐私与安全性」，

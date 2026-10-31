@@ -21,3 +21,13 @@ CRUXSHOT_LIVE_UPDATE_TEST=1 swift test --package-path CruxShotKit
 2026-10-31 验证：183 项测试通过（包含匿名网络集成测试及真实屏幕捕获）；Debug App 构建通过。未使用界面自动化。
 
 测试覆盖版本先后、预览与正式通道、当前 / 较新本地版本、乱序列表、草稿、缺失与异常安装包、恶意下载域名、限流、服务错误、无效响应、重复请求、后台间隔、跨启动通知去重和设置持久化。
+
+
+发布后可指定旧版本与预期发布标签，验证真实接口的升级判断：
+
+```sh
+CRUXSHOT_LIVE_UPDATE_TEST=1 \
+CRUXSHOT_UPDATE_TEST_CURRENT_VERSION=0.0.3-alpha \
+CRUXSHOT_UPDATE_TEST_EXPECTED_VERSION=v0.0.4-alpha \
+swift test --package-path CruxShotKit --filter LiveUpdateTests
+```

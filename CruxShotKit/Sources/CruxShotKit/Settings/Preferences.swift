@@ -34,6 +34,9 @@ public final class Preferences: ObservableObject {
     @Published public var lastLineWidth: LineWidth {
         didSet { defaults.set(Double(lastLineWidth.rawValue), forKey: Key.lastLineWidth) }
     }
+    @Published public var lastArrowStyle: ArrowStyle {
+        didSet { defaults.set(lastArrowStyle.rawValue, forKey: Key.lastArrowStyle) }
+    }
     @Published public var colorFormat: ColorFormat {
         didSet { defaults.set(colorFormat.rawValue, forKey: Key.colorFormat) }
     }
@@ -51,6 +54,7 @@ public final class Preferences: ObservableObject {
         static let fileNameTemplate = "cruxshot.fileNameTemplate"
         static let lastColor = "cruxshot.lastColor"
         static let lastLineWidth = "cruxshot.lastLineWidth"
+        static let lastArrowStyle = "cruxshot.lastArrowStyle"
         static let colorFormat = "cruxshot.colorFormat"
         static let mosaicMode = "cruxshot.mosaicMode"
         static let menuBarIconStyle = "cruxshot.menuBarIconStyle"
@@ -69,6 +73,7 @@ public final class Preferences: ObservableObject {
         lastColor = defaults.string(forKey: Key.lastColor).flatMap(PaletteColor.init(rawValue:)) ?? .red
         lastLineWidth = (defaults.object(forKey: Key.lastLineWidth) as? Double)
             .flatMap { LineWidth(rawValue: CGFloat($0)) } ?? .medium
+        lastArrowStyle = defaults.string(forKey: Key.lastArrowStyle).flatMap(ArrowStyle.init(rawValue:)) ?? .classic
         colorFormat = defaults.string(forKey: Key.colorFormat).flatMap(ColorFormat.init(rawValue:)) ?? .hex
         mosaicMode = defaults.string(forKey: Key.mosaicMode).flatMap(MosaicMode.init(rawValue:)) ?? .pixelate
         menuBarIconStyle = defaults.string(forKey: Key.menuBarIconStyle)

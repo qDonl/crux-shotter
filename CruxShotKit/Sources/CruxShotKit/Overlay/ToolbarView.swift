@@ -7,6 +7,7 @@ enum ToolbarCommand {
     case color(PaletteColor)
     case lineWidth(LineWidth)
     case mosaicMode(MosaicMode)
+    case arrowStyle(ArrowStyle)
     case done, discard
 }
 
@@ -23,6 +24,8 @@ final class ToolbarView: ToolbarSurface {
     private var widthButtons: [LineWidth: ToolbarButton] = [:]
     private var mosaicButtons: [MosaicMode: ToolbarButton] = [:]
     private var selectButton: ToolbarButton!
+    private var arrowStyleButton: ToolbarButton!
+    let arrowStyleMenu = NSMenu()
     private var undoButton: ToolbarButton!
     private var redoButton: ToolbarButton!
     private let properties = NSStackView()
@@ -64,6 +67,20 @@ final class ToolbarView: ToolbarSurface {
             })
             actions.append(ToolbarButton(title: "完成 ↩", primary: true) { [weak self] in self?.onCommand?(.done) })
         }
+        arrowStyleButton = ToolbarButton(image: Self.arrowPreview(.classic), tooltip: "箭头样式：经典实心") { [weak self] in
+            guard let self else { return }
+            arrowStyleMenu.popUp(positioning: arrowStyleMenu.items.first { $0.state == .on },
+                                 at: NSPoint(x: 0, y: arrowStyleButton.bounds.maxY), in: arrowStyleButton)
+        }
+        arrowStyleMenu.autoenablesItems = false
+        for style in ArrowStyle.allCases {
+            let item = NSMenuItem(title: style.title, action: #selector(selectArrowStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            item.image = Self.arrowPreview(style)
+            arrowStyleMenu.addItem(item)
+        }
+        styles.addArrangedSubview(arrowStyleButton)
         for color in PaletteColor.allCases {
             let b = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color)) { [weak self] in
                 self?.onCommand?(.color(color))
@@ -109,7 +126,7 @@ final class ToolbarView: ToolbarSurface {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func update(tool: CanvasTool?, color: PaletteColor, lineWidth: LineWidth, mosaicMode: MosaicMode,
-                canUndo: Bool, canRedo: Bool) {
+                canUndo: Bool, canRedo: Bool, arrowStyle: ArrowStyle = .classic, selectedArrowStyle: ArrowStyle? = nil) {
         selectButton.isActive = tool == nil
         for (t, b) in toolButtons { b.isActive = t == tool }
         for (c, b) in colorButtons { b.isActive = c == color }
@@ -117,11 +134,34 @@ final class ToolbarView: ToolbarSurface {
         for (m, b) in mosaicButtons { b.isActive = m == mosaicMode }
         undoButton.isEnabled = canUndo
         redoButton.isEnabled = canRedo
-        styles.isHidden = tool == nil || tool == .mosaic
+        let displaysArrow = tool == .arrow || selectedArrowStyle != nil
+        let currentArrow = selectedArrowStyle ?? arrowStyle
+        arrowStyleButton.isHidden = !displaysArrow
+        arrowStyleButton.image = Self.arrowPreview(currentArrow)
+        arrowStyleButton.toolTip = "箭头样式：\(currentArrow.title)"
+        arrowStyleButton.setAccessibilityLabel(arrowStyleButton.toolTip)
+        for item in arrowStyleMenu.items { item.state = item.representedObject as? String == currentArrow.rawValue ? .on : .off }
+        styles.isHidden = (tool == nil && !displaysArrow) || tool == .mosaic
         mosaic.isHidden = tool != .mosaic
-        toolLabel.isHidden = tool != nil
+        toolLabel.isHidden = tool != nil || displaysArrow
         toolLabel.stringValue = "选择模式 · V 选择 · R 矩形 · Esc 退出"
         layoutSubtreeIfNeeded()
+    }
+
+    @objc private func selectArrowStyle(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String, let style = ArrowStyle(rawValue: value) else { return }
+        onCommand?(.arrowStyle(style))
+    }
+
+    private static func arrowPreview(_ style: ArrowStyle) -> NSImage {
+        NSImage(size: CGSize(width: 32, height: 20), flipped: true) { _ in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            NSColor.labelColor.setStroke()
+            NSColor.labelColor.setFill()
+            ArrowGeometry(from: CGPoint(x: 3, y: 14), to: CGPoint(x: 29, y: 6),
+                          style: style, lineWidth: 2).draw(in: context)
+            return true
+        }
     }
 
     private func button(_ symbol: String, _ tip: String, _ action: OverlayAction) -> ToolbarButton {
