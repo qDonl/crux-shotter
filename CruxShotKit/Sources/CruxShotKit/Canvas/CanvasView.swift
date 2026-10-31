@@ -18,6 +18,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     /// Double-click in selection mode (`tool == nil`) that misses every annotation and did not
     /// end a text edit. The overlay uses it for "double-click to copy".
     public var onDoubleClick: (() -> Void)?
+    var onHover: ((CGPoint) -> Void)?
     public var isEditingText: Bool { textView != nil }
     var canDoubleClickCopy: Bool { !isEditingText && !clickSequenceEndedEditing }
     public var selectedAnnotationStyle: AnnotationStyle? {
@@ -39,6 +40,8 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     private var resizeDraft: Annotation?
     private var textView: NSTextView?
     private var textOrigin: CGPoint = .zero
+    private var preferredTextOrigin: CGPoint = .zero
+    private var lastSelectionPoint: CGPoint?
     private var cancellable: AnyCancellable?
     /// The first click of the current click sequence committed an in-place text edit.
     private var clickSequenceEndedEditing = false
@@ -138,7 +141,9 @@ public final class CanvasView: NSView, NSTextViewDelegate {
             ctx.setLineWidth(1)
             ctx.setLineDash(phase: 0, lengths: [4, 3])
             ctx.stroke(sel.bounds.insetBy(dx: -3, dy: -3))
-            for (_, c) in AnnotationResizer.handles(for: sel) {
+            for (handle, c) in AnnotationResizer.handles(for: sel) {
+                // Edge resize remains available through hit testing; corners carry the visual cue.
+                if [.top, .right, .bottom, .left].contains(handle) { continue }
                 let box = CGRect(x: c.x - 3, y: c.y - 3, width: 6, height: 6)
                 ctx.setFillColor(CGColor(gray: 1, alpha: 1))
                 ctx.fill(box)
@@ -147,6 +152,17 @@ public final class CanvasView: NSView, NSTextViewDelegate {
             }
             ctx.restoreGState()
         }
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+
+    public override func mouseMoved(with event: NSEvent) {
+        onHover?(convert(event.locationInWindow, from: nil))
     }
 
     // MARK: Mouse
@@ -171,6 +187,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
                 onDoubleClick()
                 return
             }
+            lastSelectionPoint = hit == nil ? nil : p
             select(hit)
             isMovingSelection = false
             return
@@ -241,6 +258,11 @@ public final class CanvasView: NSView, NSTextViewDelegate {
             }
         case 53 where selectedID != nil:
             select(nil)
+        case 48 where tool == nil && selectedID != nil:
+            if let point = lastSelectionPoint {
+                select(AnnotationHitTester.cycle(point, in: document.annotations, current: validSelectedID,
+                                                 backwards: event.modifierFlags.contains(.shift)))
+            }
         default:
             super.keyDown(with: event)
         }
@@ -250,6 +272,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     private func beginTextEditing(at p: CGPoint) {
         textOrigin = p
+        preferredTextOrigin = p
         let font = Annotation.textFont(size: style.fontSize)
         let height = ceil(font.ascender - font.descender + font.leading)
         let tv = NSTextView(frame: CGRect(x: p.x, y: p.y, width: max(40, bounds.maxX - p.x), height: height))
@@ -289,7 +312,18 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
         guard let tv = textView, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
         lm.ensureLayout(for: tc)
-        tv.setFrameSize(CGSize(width: tv.frame.width, height: max(tv.frame.height, ceil(lm.usedRect(for: tc).height))))
+        let used = lm.usedRect(for: tc)
+        let size = CGSize(width: max(40, ceil(used.width)), height: max(Annotation.textSize("", fontSize: style.fontSize).height, ceil(used.height)))
+        let origin = Self.fittedTextOrigin(preferred: preferredTextOrigin, size: size, in: bounds)
+        textOrigin = origin
+        tv.setFrameOrigin(origin)
+        tv.setFrameSize(size)
+    }
+
+    /// Keep the edit view and exported text aligned, including near the right and bottom edges.
+    static func fittedTextOrigin(preferred: CGPoint, size: CGSize, in bounds: CGRect) -> CGPoint {
+        CGPoint(x: min(max(preferred.x, bounds.minX), max(bounds.minX, bounds.maxX - size.width)),
+                y: min(max(preferred.y, bounds.minY), max(bounds.minY, bounds.maxY - size.height)))
     }
 
     // MARK: Helpers
@@ -303,6 +337,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func select(_ id: Annotation.ID?) {
+        if id == nil { lastSelectionPoint = nil }
         guard selectedID != id else { return }
         selectedID = id
         needsDisplay = true

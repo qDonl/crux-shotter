@@ -120,7 +120,7 @@ final class OverlayView: NSView {
         ctx.setStrokeColor(Self.accent.cgColor)
         ctx.setLineWidth(1)
         ctx.stroke(selection.insetBy(dx: -0.5, dy: -0.5))
-        if model.phase == .adjusting, controller.isGeometryEditable {
+        if model.phase == .adjusting, controller.showsGeometryHandles(in: globalRect) {
             for h in SelectionHandle.allCases {
                 let c = h.point(in: selection)
                 let s = Self.handleSide

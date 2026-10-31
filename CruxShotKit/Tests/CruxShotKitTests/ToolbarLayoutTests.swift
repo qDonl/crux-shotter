@@ -34,3 +34,19 @@ import Testing
         }
     }
 }
+
+@Suite struct CompactSelectionLayoutTests {
+    @Test func tinySelectionLeavesBothControlsReadableAndOutsideCrop() {
+        let screen = CGRect(x: 0, y: 0, width: 512, height: 384)
+        let tools = CGSize(width: 44, height: 253)
+        let actions = CGSize(width: 340, height: 80)
+        for crop in [CGRect(x: 180, y: 150, width: 2, height: 2),
+                     CGRect(x: 0, y: 0, width: 2, height: 2),
+                     CGRect(x: 510, y: 382, width: 2, height: 2)] {
+            let layout = ToolbarLayout(selection: crop, available: screen, toolSize: tools, actionSize: actions)
+            #expect(screen.contains(layout.tools) && screen.contains(layout.actions))
+            #expect(!layout.tools.intersects(layout.actions))
+            #expect(!layout.tools.intersects(crop) && !layout.actions.intersects(crop))
+        }
+    }
+}

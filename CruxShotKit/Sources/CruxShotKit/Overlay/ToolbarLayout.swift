@@ -25,7 +25,7 @@ struct ToolbarLayout {
                         area.maxX - actionSize.width, area.minX]
         let actionYs = [selection.minY - gap - actionSize.height, selection.maxY + gap,
                         area.minY, area.maxY - actionSize.height]
-        var best: (CGRect, CGRect, CGFloat)?
+        var best: (CGRect, CGRect, (CGFloat, CGFloat, CGFloat))?
         for x in toolXs {
             for y in toolYs {
                 let tools = clamped(CGPoint(x: x, y: y), toolSize)
@@ -39,8 +39,17 @@ struct ToolbarLayout {
                             + abs(tools.maxY - selection.maxY)
                             + abs(actions.maxX - selection.maxX)
                             + abs(actions.maxY + gap - selection.minY)
-                        let score = collision * 10_000 + covered * 10 + distance
-                        if best == nil || score < best!.2 { best = (tools, actions, score) }
+                        // On tiny crops, keep both bars readable and leave the crop visible.
+                        // Full-screen crops cannot avoid coverage, so minimize it afterwards.
+                        let score = (collision, covered, distance)
+                        if let previous = best?.2 {
+                            if score.0 < previous.0 || (score.0 == previous.0 &&
+                                (score.1 < previous.1 || (score.1 == previous.1 && score.2 < previous.2))) {
+                                best = (tools, actions, score)
+                            }
+                        } else {
+                            best = (tools, actions, score)
+                        }
                     }
                 }
             }

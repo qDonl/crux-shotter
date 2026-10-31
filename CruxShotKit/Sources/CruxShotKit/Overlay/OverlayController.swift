@@ -153,7 +153,18 @@ public final class OverlayController {
             refresh()
         } else {
             updateAdjustingCursor(at: g)
+            refresh()
         }
+    }
+
+    /// Reveal crop handles only while the pointer approaches its border, or during a resize.
+    func showsGeometryHandles(in rect: CGRect) -> Bool {
+        guard isGeometryEditable else { return false }
+        if case .resize = geometryDrag { return true }
+        let reach: CGFloat = 14
+        guard rect.insetBy(dx: -reach, dy: -reach).contains(cursor) else { return false }
+        return abs(cursor.x - rect.minX) <= reach || abs(cursor.x - rect.maxX) <= reach ||
+            abs(cursor.y - rect.minY) <= reach || abs(cursor.y - rect.maxY) <= reach
     }
 
     func mouseDown(at g: CGPoint, clickCount: Int) {
@@ -219,7 +230,10 @@ public final class OverlayController {
             model.mouseUp(at: g)
             if model.phase == .adjusting { enterAdjusting() } else { refresh() }
         case .adjusting:
-            guard geometryDrag != nil else { return }
+            guard let drag = geometryDrag else { return }
+            if case .move(_, let from) = drag, hypot(g.x - from.x, g.y - from.y) < SelectionModel.dragThreshold {
+                canvas?.select(nil)
+            }
             mouseDragged(to: g)
             geometryDrag = nil
             rebuildCanvas()
@@ -239,7 +253,20 @@ public final class OverlayController {
             default: NSCursor.crosshair.set()
             }
         } else if rect.contains(g) {
-            (isSelectionBackground(at: g) ? NSCursor.openHand : NSCursor.crosshair).set()
+            if let document, let frame = document.captureFrame, canvas?.tool == nil {
+                let point = Geometry.imagePoint(fromGlobal: g, imageOriginGlobal: frame)
+                if let id = canvas?.selectedID,
+                   let selected = document.annotations.first(where: { $0.id == id }),
+                   AnnotationResizer.handle(at: point, for: selected) != nil {
+                    NSCursor.crosshair.set()
+                } else if AnnotationHitTester.hit(point, in: document.annotations) != nil {
+                    NSCursor.pointingHand.set()
+                } else {
+                    NSCursor.openHand.set()
+                }
+            } else {
+                NSCursor.crosshair.set()
+            }
         } else {
             NSCursor.arrow.set()
         }
@@ -359,6 +386,11 @@ public final class OverlayController {
         cv.mosaicMode = preferences.mosaicMode
         cv.onChange = { [weak self] in self?.documentChanged() }
         cv.onDoubleClick = { [weak self] in self?.perform(.copy) }
+        cv.onHover = { [weak self] point in
+            guard let self, let frame = self.document?.captureFrame else { return }
+            let global = CGPoint(x: frame.minX + point.x, y: frame.maxY - point.y)
+            self.mouseMoved(to: global)
+        }
         if cv.superview !== host {
             cv.removeFromSuperview()
             host.addSubview(cv, positioned: .below, relativeTo: host.magnifier)

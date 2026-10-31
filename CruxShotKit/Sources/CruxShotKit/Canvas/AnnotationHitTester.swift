@@ -6,6 +6,17 @@ public enum AnnotationHitTester {
         annotations.last { hits($0, point, tolerance: tolerance) }?.id
     }
 
+    /// Cycle through stacked marks at the last clicked point, front to back.
+    public static func cycle(_ point: CGPoint, in annotations: [Annotation],
+                             current: Annotation.ID?, backwards: Bool = false,
+                             tolerance: CGFloat = 6) -> Annotation.ID? {
+        let matches = annotations.reversed().filter { hits($0, point, tolerance: tolerance) }.map(\.id)
+        guard !matches.isEmpty else { return nil }
+        guard let current, let index = matches.firstIndex(of: current) else { return matches[0] }
+        let next = backwards ? (index + matches.count - 1) % matches.count : (index + 1) % matches.count
+        return matches[next]
+    }
+
     static func hits(_ a: Annotation, _ p: CGPoint, tolerance: CGFloat) -> Bool {
         let reach = tolerance + a.style.lineWidth.rawValue / 2
         switch a.kind {

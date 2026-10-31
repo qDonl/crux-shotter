@@ -41,3 +41,18 @@ import Testing
         #expect(AnnotationHitTester.hit(.init(x: 500, y: 500), in: [t]) == nil)
     }
 }
+
+@Suite struct OverlappingAnnotationTests {
+    @Test func cyclesOnlyThroughMarksAtTheClickedPoint() {
+        let bottom = Annotation(kind: .mosaic(CGRect(x: 0, y: 0, width: 60, height: 60), .blur))
+        let top = Annotation(kind: .counter(center: CGPoint(x: 30, y: 30), number: 1))
+        let elsewhere = Annotation(kind: .rect(CGRect(x: 100, y: 100, width: 20, height: 20)))
+        let items = [bottom, top, elsewhere]
+        let point = CGPoint(x: 30, y: 30)
+        #expect(AnnotationHitTester.cycle(point, in: items, current: nil) == top.id)
+        #expect(AnnotationHitTester.cycle(point, in: items, current: top.id) == bottom.id)
+        #expect(AnnotationHitTester.cycle(point, in: items, current: bottom.id) == top.id)
+        #expect(AnnotationHitTester.cycle(point, in: items, current: top.id, backwards: true) == bottom.id)
+        #expect(AnnotationHitTester.cycle(.init(x: 90, y: 30), in: items, current: top.id) == nil)
+    }
+}
