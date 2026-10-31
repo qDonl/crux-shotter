@@ -186,13 +186,13 @@ private struct AboutTab: View {
                     .disabled(updates.isChecking)
                 if updates.isChecking { ProgressView().controlSize(.small) }
             }
-            if !usesSparkle {
-                Toggle("启动时自动检查更新（每天最多一次）", isOn: $preferences.automaticallyChecksForUpdates)
+            Toggle("启动时自动检查更新（每天最多一次）", isOn: $preferences.automaticallyChecksForUpdates)
                     .font(.callout)
-                updateStatus
-                Text("检测 GitHub 上的新版本，下载后手动安装。预览版本会同时检查后续预览版和正式版。")
+            if !usesSparkle { updateStatus }
+            Text(usesSparkle
+                 ? "在应用内下载更新，验证后安装并重新启动。预览版本会同时检查后续预览版和正式版。"
+                 : "检测 GitHub 上的新版本，下载后手动安装。预览版本会同时检查后续预览版和正式版。")
                     .font(.caption).foregroundStyle(.secondary)
-            }
         }
     }
 

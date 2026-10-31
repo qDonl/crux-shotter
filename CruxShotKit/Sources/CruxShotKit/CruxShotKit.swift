@@ -1,3 +1,3 @@
 public enum CruxShotKit {
-    public static let version = "0.0.5"
+    public static let version = "0.0.6"
 }

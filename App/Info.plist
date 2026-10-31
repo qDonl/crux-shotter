@@ -22,10 +22,17 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CruxShotReleaseVersion</key>
 	<string>$(CRUXSHOT_RELEASE_VERSION)</string>
+	<!-- Startup scheduling follows the existing user preference; Sparkle performs installation. -->
 	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/$(CRUXSHOT_GITHUB_REPO)/releases/latest/download/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/$(CRUXSHOT_GITHUB_REPO)/feat/v1/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>$(SPARKLE_PUBLIC_KEY)</string>
 	<key>LSMinimumSystemVersion</key>

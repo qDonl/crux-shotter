@@ -30,7 +30,7 @@ cd "$ROOT"
 APP_NAME="CruxShotter"
 SCHEME="CruxShot"
 NUMERIC_VERSION="${VERSION%%-*}"
-BUILD_NUMBER="${BUILD_NUMBER:-$(date +%Y%m%d%H%M)}"
+BUILD_NUMBER="${BUILD_NUMBER:-$(sed -n 's/.*CURRENT_PROJECT_VERSION: "\([0-9]*\)"/\1/p' project.yml | head -1)}"
 BUILD_DIR="$ROOT/build"
 DMG="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
 STAGING="$BUILD_DIR/dmg-staging"
@@ -62,7 +62,7 @@ else
 </dict></plist>
 PLIST
   xcodebuild -project CruxShot.xcodeproj -scheme "$SCHEME" -configuration Release \
-    -archivePath "$ARCHIVE" \
+    -archivePath "$ARCHIVE" -derivedDataPath "$BUILD_DIR/release/DerivedData" \
     CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="${APPLE_TEAM_ID:?}" \
     "${VERSION_SETTINGS[@]}" archive
   xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT_DIR" \
@@ -88,6 +88,16 @@ if [[ $SKIP_SIGN -eq 0 ]]; then
   xcrun stapler staple "$DMG"
 fi
 
+# Sign both the payload and the feed, including for ad-hoc alpha releases.
+SPARKLE_BIN="$BUILD_DIR/release/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin"
+if [[ ! -x "$SPARKLE_BIN/sign_update" ]]; then
+  SPARKLE_BIN="$(find "$BUILD_DIR/release" -path '*/Sparkle/bin/sign_update' -type f -print -quit | sed 's@/sign_update$@@')"
+fi
+[[ -x "$SPARKLE_BIN/sign_update" ]] || { echo "Sparkle signing tool not found" >&2; exit 1; }
+python3 scripts/generate-update-feed.py "$APP" "$DMG" "$SPARKLE_BIN"
+
 echo
 echo "DMG:    $DMG"
-echo "sha256: $(shasum -a 256 "$DMG" | awk '{print $1}')"
+DIGEST="$(python3 -c 'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' "$DMG")"
+printf '%s  %s\n' "$DIGEST" "$(basename "$DMG")" > "$DMG.sha256"
+echo "sha256: $DIGEST"

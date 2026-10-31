@@ -5,3 +5,6 @@ DerivedData/
 build/
 .superpowers/
 CruxShotKit/Package.resolved
+
+# Python release tooling
+__pycache__/

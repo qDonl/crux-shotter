@@ -1,5 +1,7 @@
 # GitHub 更新检测
 
+当前官方构建已配置 Sparkle 签名与应用内安装。完整发布、密钥与迁移流程见 [应用内更新](in-app-updates.md)。以下描述无公钥构建的 GitHub 回退流程及启动检测策略。
+
 未配置 Sparkle EdDSA 公钥的构建使用 GitHub Releases 检测；配置后保留原 Sparkle 更新流程。
 
 - 手动入口：菜单栏「检查更新…」、设置 → 关于。

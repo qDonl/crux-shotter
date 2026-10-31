@@ -5,7 +5,7 @@ import CruxShotKit
 import KeyboardShortcuts
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private static let onboardingShownKey = "cruxshot.onboardingShown"
     private static let allShortcuts: [KeyboardShortcuts.Name] = [
         .captureArea, .captureFullScreen, .captureOCR, .pinClipboard, .togglePins, .restorePin,
@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let onboarding = OnboardingWindow()
     private var settingsWindow: NSWindow?
 
-    /// Signed Sparkle feeds support in-app installation. Alpha builds use GitHub release detection.
+    /// Sparkle handles signed downloads, installation and relaunch; GitHub remains a fallback.
     private static let hasUpdateKey: Bool = {
         let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
         return !(key ?? "").trimmingCharacters(in: .whitespaces).isEmpty
@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: Self.hasUpdateKey, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: Self.hasUpdateKey, updaterDelegate: self, userDriverDelegate: nil)
         // The presenter is needed to build the coordinator, so its callbacks reach it weakly.
         weak var weakCoordinator: AppCoordinator?
         let presenter = PinWindowPresenter(onSave: { weakCoordinator?.save($0) },
@@ -52,16 +52,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                 openSettings: { [weak self] in self?.showSettings() })
         statusController?.checkForUpdates = { [weak self] in self?.checkForUpdates() }
         statusController?.updatesAreChecking = { [weak self] in self?.githubUpdates.isChecking ?? false }
-        if !Self.hasUpdateKey {
-            automaticUpdateTask = Task { @MainActor [weak self] in
-                do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                guard let self, Preferences.shared.automaticallyChecksForUpdates,
-                      githubUpdates.shouldCheckAutomatically() else { return }
-                guard await githubUpdates.check(), !Task.isCancelled, Preferences.shared.automaticallyChecksForUpdates,
-                      let release = githubUpdates.takeAutomaticNotice() else { return }
-                Toast.show("发现新版本 \(release.version)", detail: "当前版本 \(githubUpdates.currentVersion)",
-                           action: ("查看新版", { NSWorkspace.shared.open(release.pageURL) }))
-            }
+        automaticUpdateTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            guard let self, Preferences.shared.automaticallyChecksForUpdates,
+                  githubUpdates.shouldCheckAutomatically() else { return }
+            guard await githubUpdates.check(), !Task.isCancelled, Preferences.shared.automaticallyChecksForUpdates,
+                  let release = githubUpdates.takeAutomaticNotice() else { return }
+            Toast.show("发现新版本 \(release.version)", detail: "当前版本 \(githubUpdates.currentVersion)",
+                       action: (Self.hasUpdateKey ? "下载并安装" : "查看新版", { [weak self] in
+                           self?.checkForUpdates()
+                       }))
         }
 
         let defaults = UserDefaults.standard
@@ -72,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) { automaticUpdateTask?.cancel() }
+
+    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+        UpdateChannelPolicy.allowedChannels(currentVersion: githubUpdates.currentVersion)
+    }
 
     private func checkForUpdates() {
         if Self.hasUpdateKey {
