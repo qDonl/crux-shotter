@@ -12,8 +12,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let coordinator: AppCoordinator
     private let presenter: PinWindowPresenter
     private let openSettings: () -> Void
-    /// Nil when auto-update is not configured (no Sparkle public key); the item stays disabled.
+    /// Shared entry for GitHub release detection and signed Sparkle updates.
     var checkForUpdates: (() -> Void)?
+    var updatesAreChecking: () -> Bool = { false }
 
     private let statusItem: NSStatusItem
     private let conflictDot = NSView()
@@ -109,8 +110,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         toggleItem?.isEnabled = !pins.items.isEmpty
         restoreItem.isEnabled = pins.canRestore
         closeAllItem.isEnabled = !pins.items.isEmpty
-        updatesItem.isEnabled = checkForUpdates != nil
-        updatesItem.toolTip = checkForUpdates == nil ? "自动更新尚未配置" : nil
+        let checking = updatesAreChecking()
+        updatesItem.title = checking ? "正在检查更新…" : "检查更新…"
+        updatesItem.isEnabled = checkForUpdates != nil && !checking
+        updatesItem.toolTip = "检查 GitHub 发布的新版本"
 
         let submenu = NSMenu()
         submenu.autoenablesItems = false

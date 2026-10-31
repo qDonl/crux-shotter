@@ -16,6 +16,9 @@ public final class Preferences: ObservableObject {
 
     private let defaults: UserDefaults
 
+    @Published public var automaticallyChecksForUpdates: Bool {
+        didSet { defaults.set(automaticallyChecksForUpdates, forKey: Key.automaticallyChecksForUpdates) }
+    }
     @Published public var saveDirectory: URL {
         didSet { defaults.set(saveDirectory.path, forKey: Key.saveDirectory) }
     }
@@ -42,6 +45,7 @@ public final class Preferences: ObservableObject {
     }
 
     private enum Key {
+        static let automaticallyChecksForUpdates = "cruxshot.updates.automatic"
         static let saveDirectory = "cruxshot.saveDirectory"
         static let imageFormat = "cruxshot.imageFormat"
         static let fileNameTemplate = "cruxshot.fileNameTemplate"
@@ -54,6 +58,7 @@ public final class Preferences: ObservableObject {
 
     public init(defaults: UserDefaults) {
         self.defaults = defaults
+        automaticallyChecksForUpdates = defaults.object(forKey: Key.automaticallyChecksForUpdates) as? Bool ?? true
         if let path = defaults.string(forKey: Key.saveDirectory), !path.isEmpty {
             saveDirectory = URL(fileURLWithPath: path, isDirectory: true)
         } else {

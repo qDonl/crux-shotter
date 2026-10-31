@@ -5,7 +5,8 @@ import KeyboardShortcuts
 public struct SettingsView: View {
     @ObservedObject private var preferences: Preferences
     private let checkForUpdates: () -> Void
-    private let updatesEnabled: Bool
+    @ObservedObject private var updates: UpdateChecker
+    private let usesSparkle: Bool
     @State private var selected: Page = .general
 
     private enum Page: String, CaseIterable {
@@ -20,10 +21,11 @@ public struct SettingsView: View {
     }
 
     public init(preferences: Preferences, checkForUpdates: @escaping () -> Void = {},
-                updatesEnabled: Bool = true) {
+                updates: UpdateChecker = .shared, usesSparkle: Bool = false) {
         self.preferences = preferences
         self.checkForUpdates = checkForUpdates
-        self.updatesEnabled = updatesEnabled
+        self.updates = updates
+        self.usesSparkle = usesSparkle
     }
 
     public var body: some View {
@@ -53,7 +55,7 @@ public struct SettingsView: View {
                 switch selected {
                 case .general: GeneralTab(preferences: preferences)
                 case .shortcuts: ShortcutsTab()
-                case .about: AboutTab(checkForUpdates: checkForUpdates, updatesEnabled: updatesEnabled)
+                case .about: AboutTab(preferences: preferences, updates: updates, checkForUpdates: checkForUpdates, usesSparkle: usesSparkle)
                 }
             }
             .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -160,8 +162,10 @@ private struct ShortcutsTab: View {
 }
 
 private struct AboutTab: View {
+    @ObservedObject var preferences: Preferences
+    @ObservedObject var updates: UpdateChecker
     let checkForUpdates: () -> Void
-    let updatesEnabled: Bool
+    let usesSparkle: Bool
 
     private var version: String {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -174,14 +178,37 @@ private struct AboutTab: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("CruxShotter").font(.title.weight(.medium))
             Text("截图、标注、贴图，让工作保持流畅。")
-            Text("版本 \(version)").font(.callout).foregroundStyle(.secondary)
+            Text("版本 \(usesSparkle ? version : updates.currentVersion)").font(.callout).foregroundStyle(.secondary)
             Divider()
             Link("在 GitHub 查看项目", destination: URL(string: "https://github.com/qDonl/crux-shotter")!)
-            Button("检查更新…", action: checkForUpdates).disabled(!updatesEnabled)
-            if !updatesEnabled {
-                Text("当前版本尚未启用自动更新，请前往 GitHub 查看发布版本。")
+            HStack(spacing: 10) {
+                Button(updates.isChecking ? "正在检查…" : "检查更新…", action: checkForUpdates)
+                    .disabled(updates.isChecking)
+                if updates.isChecking { ProgressView().controlSize(.small) }
+            }
+            if !usesSparkle {
+                Toggle("启动时自动检查更新（每天最多一次）", isOn: $preferences.automaticallyChecksForUpdates)
+                    .font(.callout)
+                updateStatus
+                Text("检测 GitHub 上的新版本，下载后手动安装。预览版本会同时检查后续预览版和正式版。")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
+
+    @ViewBuilder private var updateStatus: some View {
+        switch updates.state {
+        case .available(let release):
+            HStack {
+                Text("发现新版本 \(release.version)").font(.callout)
+                Link("下载新版", destination: release.downloadURL)
+            }
+        case .upToDate:
+            Label("当前已是最新版本", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
+        case .failed(let message):
+            Text(message).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+        case .idle, .checking: EmptyView()
+        }
+    }
+
 }
