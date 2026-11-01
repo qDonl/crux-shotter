@@ -45,6 +45,7 @@ xcodegen generate
 if [[ $SKIP_SIGN -eq 1 ]]; then
   xcodebuild -project CruxShot.xcodeproj -scheme "$SCHEME" -configuration Release \
     -derivedDataPath "$BUILD_DIR/release/DerivedData" \
+    -skipPackageUpdates \
     CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= ENABLE_HARDENED_RUNTIME=NO \
     "${VERSION_SETTINGS[@]}" build
   APP="$BUILD_DIR/release/DerivedData/Build/Products/Release/$APP_NAME.app"
@@ -63,6 +64,7 @@ else
 PLIST
   xcodebuild -project CruxShot.xcodeproj -scheme "$SCHEME" -configuration Release \
     -archivePath "$ARCHIVE" -derivedDataPath "$BUILD_DIR/release/DerivedData" \
+    -skipPackageUpdates \
     CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="${APPLE_TEAM_ID:?}" \
     "${VERSION_SETTINGS[@]}" archive
   xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT_DIR" \

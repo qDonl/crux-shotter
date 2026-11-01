@@ -84,7 +84,7 @@ struct AnnotationDocumentTests {
     @Test func counterBoundsMatchRendererDiameter() {
         let a = Annotation(kind: .counter(center: CGPoint(x: 50, y: 50), number: 1))
         let b = a.bounds
-        #expect(abs(b.minX - 30.2) < 0.001 && abs(b.minY - 30.2) < 0.001)
-        #expect(abs(b.width - 39.6) < 0.001 && abs(b.height - 39.6) < 0.001)
+        #expect(abs(b.minX - 36.5) < 0.001 && abs(b.minY - 36.5) < 0.001)
+        #expect(abs(b.width - 27) < 0.001 && abs(b.height - 27) < 0.001)
     }
 }

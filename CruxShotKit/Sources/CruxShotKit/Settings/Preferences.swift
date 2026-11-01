@@ -37,6 +37,9 @@ public final class Preferences: ObservableObject {
     @Published public var lastArrowStyle: ArrowStyle {
         didSet { defaults.set(lastArrowStyle.rawValue, forKey: Key.lastArrowStyle) }
     }
+    @Published public var lastCounterStyle: CounterStyle {
+        didSet { defaults.set(lastCounterStyle.rawValue, forKey: Key.lastCounterStyle) }
+    }
     @Published public var colorFormat: ColorFormat {
         didSet { defaults.set(colorFormat.rawValue, forKey: Key.colorFormat) }
     }
@@ -55,6 +58,7 @@ public final class Preferences: ObservableObject {
         static let lastColor = "cruxshot.lastColor"
         static let lastLineWidth = "cruxshot.lastLineWidth"
         static let lastArrowStyle = "cruxshot.lastArrowStyle"
+        static let lastCounterStyle = "cruxshot.lastCounterStyle"
         static let colorFormat = "cruxshot.colorFormat"
         static let mosaicMode = "cruxshot.mosaicMode"
         static let menuBarIconStyle = "cruxshot.menuBarIconStyle"
@@ -74,6 +78,7 @@ public final class Preferences: ObservableObject {
         lastLineWidth = (defaults.object(forKey: Key.lastLineWidth) as? Double)
             .flatMap { LineWidth(rawValue: CGFloat($0)) } ?? .medium
         lastArrowStyle = defaults.string(forKey: Key.lastArrowStyle).flatMap(ArrowStyle.init(rawValue:)) ?? .classic
+        lastCounterStyle = defaults.string(forKey: Key.lastCounterStyle).flatMap(CounterStyle.init(rawValue:)) ?? .preciseRing
         colorFormat = defaults.string(forKey: Key.colorFormat).flatMap(ColorFormat.init(rawValue:)) ?? .hex
         mosaicMode = defaults.string(forKey: Key.mosaicMode).flatMap(MosaicMode.init(rawValue:)) ?? .pixelate
         menuBarIconStyle = defaults.string(forKey: Key.menuBarIconStyle)

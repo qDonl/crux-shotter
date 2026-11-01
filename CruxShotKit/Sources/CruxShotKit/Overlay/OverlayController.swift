@@ -439,7 +439,8 @@ public final class OverlayController {
     }
 
     private var currentStyle: AnnotationStyle {
-        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth, arrowStyle: preferences.lastArrowStyle)
+        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth,
+                        arrowStyle: preferences.lastArrowStyle, counterStyle: preferences.lastCounterStyle)
     }
 
     private func setTool(_ tool: CanvasTool?) {
@@ -469,6 +470,10 @@ public final class OverlayController {
             preferences.lastArrowStyle = style
             canvas?.applyArrowStyle(style)
             updateToolbar()
+        case .counterStyle(let style):
+            preferences.lastCounterStyle = style
+            canvas?.applyCounterStyle(style)
+            updateToolbar()
         case .mosaicMode(let mode):
             preferences.mosaicMode = mode
             canvas?.mosaicMode = mode
@@ -491,6 +496,7 @@ public final class OverlayController {
                   lineWidth: selectedStyle?.lineWidth ?? preferences.lastLineWidth,
                   mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo,
                   arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas?.selectedArrowStyle,
+                  counterStyle: preferences.lastCounterStyle, selectedCounterStyle: canvas?.selectedCounterStyle,
                   hasSelection: canvas?.selectedID != nil)
         layoutToolbar()
     }

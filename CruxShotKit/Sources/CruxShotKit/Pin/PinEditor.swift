@@ -123,7 +123,8 @@ final class PinEditor {
     }
 
     private var currentStyle: AnnotationStyle {
-        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth, arrowStyle: preferences.lastArrowStyle)
+        AnnotationStyle(color: preferences.lastColor, lineWidth: preferences.lastLineWidth,
+                        arrowStyle: preferences.lastArrowStyle, counterStyle: preferences.lastCounterStyle)
     }
 
     private func handle(_ command: ToolbarCommand) {
@@ -145,6 +146,9 @@ final class PinEditor {
         case .arrowStyle(let style):
             preferences.lastArrowStyle = style
             canvas.applyArrowStyle(style)
+        case .counterStyle(let style):
+            preferences.lastCounterStyle = style
+            canvas.applyCounterStyle(style)
         case .mosaicMode(let mode):
             preferences.mosaicMode = mode
             canvas.mosaicMode = mode
@@ -164,6 +168,7 @@ final class PinEditor {
                        lineWidth: selectedStyle?.lineWidth ?? preferences.lastLineWidth,
                        mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo,
                        arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas.selectedArrowStyle,
+                       counterStyle: preferences.lastCounterStyle, selectedCounterStyle: canvas.selectedCounterStyle,
                        hasSelection: canvas.selectedID != nil)
         layout()
         canvas.needsDisplay = true

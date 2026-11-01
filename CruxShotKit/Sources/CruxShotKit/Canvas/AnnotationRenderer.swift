@@ -68,9 +68,7 @@ public enum AnnotationRenderer {
         case .text(let origin, let string):
             drawText(string, at: origin, fontSize: a.style.fontSize, color: color, in: ctx)
         case .counter(let center, let number):
-            let d = Annotation.counterDiameterFactor * a.style.fontSize
-            ctx.fillEllipse(in: CGRect(x: center.x - d / 2, y: center.y - d / 2, width: d, height: d))
-            drawCenteredNumber(number, at: center, fontSize: a.style.fontSize, in: ctx)
+            CounterGeometry(center: center, number: number, style: a.style.counterStyle).draw(color: color, in: ctx)
         case .mosaic(let rect, let mode):
             drawMosaic(rect, mode: mode, source: source, scale: scale, in: ctx)
         }
@@ -95,18 +93,6 @@ public enum AnnotationRenderer {
             // Huge layout width: never wraps; only explicit newlines break lines (same as the editor).
             str.draw(with: CGRect(x: origin.x, y: origin.y, width: extent, height: extent),
                      options: [.usesLineFragmentOrigin])
-        }
-    }
-
-    private static func drawCenteredNumber(_ n: Int, at center: CGPoint, fontSize: CGFloat, in ctx: CGContext) {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
-            .foregroundColor: NSColor.white,
-        ]
-        let str = NSAttributedString(string: String(n), attributes: attrs)
-        let size = str.size()
-        withFlippedGraphics(ctx) {
-            str.draw(at: CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
         }
     }
 

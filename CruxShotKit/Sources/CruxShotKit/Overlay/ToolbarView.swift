@@ -8,6 +8,7 @@ enum ToolbarCommand {
     case lineWidth(LineWidth)
     case mosaicMode(MosaicMode)
     case arrowStyle(ArrowStyle)
+    case counterStyle(CounterStyle)
     case done, discard
 }
 
@@ -24,10 +25,13 @@ final class ToolbarView: ToolbarSurface {
     private var mosaicButtons: [MosaicMode: ToolbarButton] = [:]
     private var selectButton: ToolbarButton!
     private var arrowStyleButton: ToolbarButton!
+    private var counterStyleButton: ToolbarButton!
     private var swatchButton: ToolbarButton!
     let arrowStylePopover = NSPopover()
+    let counterStylePopover = NSPopover()
     let colorPopover = NSPopover()
     private(set) var arrowStyleChoices: [ArrowStyle: ToolbarButton] = [:]
+    private(set) var counterStyleChoices: [CounterStyle: ToolbarButton] = [:]
     private(set) var colorChoices: [PaletteColor: ToolbarButton] = [:]
     private var undoButton: ToolbarButton!
     private var redoButton: ToolbarButton!
@@ -87,6 +91,20 @@ final class ToolbarView: ToolbarSurface {
         arrowStylePopover.behavior = .transient
         arrowStylePopover.animates = false
         arrowStylePopover.contentViewController = Self.picker(ArrowStyle.allCases.compactMap { arrowStyleChoices[$0] }, columns: 2)
+        counterStyleButton = ToolbarButton(image: Self.counterPreview(.preciseRing), tooltip: "序号样式：精密圆环") { [weak self] in
+            guard let self else { return }
+            counterStylePopover.show(relativeTo: counterStyleButton.bounds, of: counterStyleButton, preferredEdge: .maxY)
+        }
+        for style in CounterStyle.allCases {
+            let choice = ToolbarButton(image: Self.counterPreview(style), tooltip: style.title, width: 44) { [weak self] in
+                self?.counterStylePopover.performClose(nil)
+                self?.onCommand?(.counterStyle(style))
+            }
+            counterStyleChoices[style] = choice
+        }
+        counterStylePopover.behavior = .transient
+        counterStylePopover.animates = false
+        counterStylePopover.contentViewController = Self.picker(CounterStyle.allCases.compactMap { counterStyleChoices[$0] }, columns: 3)
         swatchButton = ToolbarButton(image: Self.swatch(.red), tooltip: "颜色：红色") { [weak self] in
             guard let self else { return }
             colorPopover.show(relativeTo: swatchButton.bounds, of: swatchButton, preferredEdge: .maxY)
@@ -103,6 +121,7 @@ final class ToolbarView: ToolbarSurface {
         colorPopover.contentViewController = Self.picker(PaletteColor.allCases.compactMap { colorChoices[$0] }, columns: 3)
         styles.addArrangedSubview(swatchButton)
         styles.addArrangedSubview(arrowStyleButton)
+        styles.addArrangedSubview(counterStyleButton)
         for (mode, symbol, title) in [(MosaicMode.pixelate, "square.grid.3x3.fill", "像素化"),
                                       (.blur, "circle.dotted", "模糊")] {
             let b = ToolbarButton(symbol: symbol, tooltip: title) { [weak self] in self?.onCommand?(.mosaicMode(mode)) }
@@ -126,7 +145,8 @@ final class ToolbarView: ToolbarSurface {
 
     func update(tool: CanvasTool?, color: PaletteColor, lineWidth: LineWidth, mosaicMode: MosaicMode,
                 canUndo: Bool, canRedo: Bool, arrowStyle: ArrowStyle = .classic,
-                selectedArrowStyle: ArrowStyle? = nil, hasSelection: Bool = false) {
+                selectedArrowStyle: ArrowStyle? = nil, counterStyle: CounterStyle = .preciseRing,
+                selectedCounterStyle: CounterStyle? = nil, hasSelection: Bool = false) {
         selectButton.isActive = tool == nil
         for (t, b) in toolButtons { b.isActive = t == tool }
         swatchButton.image = Self.swatch(color)
@@ -136,15 +156,23 @@ final class ToolbarView: ToolbarSurface {
         for (m, b) in mosaicButtons { b.isActive = m == mosaicMode }
         undoButton.isEnabled = canUndo
         redoButton.isEnabled = canRedo
-        let displaysArrow = tool == .arrow || selectedArrowStyle != nil
+        let displaysArrow = selectedArrowStyle != nil || (selectedCounterStyle == nil && tool == .arrow)
         let currentArrow = selectedArrowStyle ?? arrowStyle
         arrowStyleButton.isHidden = !displaysArrow
         arrowStyleButton.image = Self.arrowPreview(currentArrow)
         arrowStyleButton.toolTip = "箭头样式：\(currentArrow.title)"
         arrowStyleButton.setAccessibilityLabel(arrowStyleButton.toolTip)
         for (choice, button) in arrowStyleChoices { button.isActive = choice == currentArrow }
-        styles.isHidden = tool == .mosaic
-        mosaic.isHidden = tool != .mosaic
+        let displaysCounter = selectedCounterStyle != nil || (selectedArrowStyle == nil && tool == .counter)
+        let currentCounter = selectedCounterStyle ?? counterStyle
+        counterStyleButton.isHidden = !displaysCounter
+        counterStyleButton.image = Self.counterPreview(currentCounter)
+        counterStyleButton.toolTip = "序号样式：\(currentCounter.title)"
+        counterStyleButton.setAccessibilityLabel(counterStyleButton.toolTip)
+        for (choice, button) in counterStyleChoices { button.isActive = choice == currentCounter }
+        let displaysMosaic = tool == .mosaic && !displaysArrow && !displaysCounter
+        styles.isHidden = displaysMosaic
+        mosaic.isHidden = !displaysMosaic
         propertyBar.isHidden = tool == nil && !hasSelection
         layoutSubtreeIfNeeded()
     }
@@ -174,6 +202,18 @@ final class ToolbarView: ToolbarSurface {
             NSColor.labelColor.setFill()
             ArrowGeometry(from: CGPoint(x: 3, y: 14), to: CGPoint(x: 29, y: 6),
                           style: style, lineWidth: 2).draw(in: context)
+            return true
+        }
+    }
+
+    private static func counterPreview(_ style: CounterStyle) -> NSImage {
+        NSImage(size: CGSize(width: 28, height: 28), flipped: true) { _ in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            context.saveGState()
+            context.translateBy(x: 14, y: 14)
+            context.scaleBy(x: 0.86, y: 0.86)
+            CounterGeometry(center: .zero, number: 1, style: style).draw(color: NSColor.labelColor.cgColor, in: context)
+            context.restoreGState()
             return true
         }
     }

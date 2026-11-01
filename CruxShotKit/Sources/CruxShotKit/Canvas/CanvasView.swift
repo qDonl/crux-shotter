@@ -40,6 +40,11 @@ public final class CanvasView: NSView, NSTextViewDelegate {
               case .arrow = a.kind else { return nil }
         return a.style.arrowStyle
     }
+    public var selectedCounterStyle: CounterStyle? {
+        guard let id = validSelectedID, let a = document.annotations.first(where: { $0.id == id }),
+              case .counter = a.kind else { return nil }
+        return a.style.counterStyle
+    }
 
     private(set) var selectedID: Annotation.ID?
     private var draft: Annotation?
@@ -74,14 +79,16 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     // MARK: Public API
 
-    /// Sets the drawing style; selected annotations keep their arrow variant, changed via `applyArrowStyle`.
+    /// Sets the drawing style; selected specialized variants change through their own commands.
     public func applyStyle(_ newStyle: AnnotationStyle) {
         style = newStyle
         if let id = validSelectedID {
             document.update(id: id) {
                 let arrowStyle = $0.style.arrowStyle
+                let counterStyle = $0.style.counterStyle
                 $0.style = newStyle
                 $0.style.arrowStyle = arrowStyle
+                $0.style.counterStyle = counterStyle
             }
             changed()
         }
@@ -134,6 +141,15 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         if let id = validSelectedID, selectedArrowStyle != nil,
            document.annotations.first(where: { $0.id == id })?.style.arrowStyle != arrowStyle {
             document.update(id: id) { $0.style.arrowStyle = arrowStyle }
+            changed()
+        }
+    }
+
+    public func applyCounterStyle(_ counterStyle: CounterStyle) {
+        style.counterStyle = counterStyle
+        if let id = validSelectedID, selectedCounterStyle != nil,
+           document.annotations.first(where: { $0.id == id })?.style.counterStyle != counterStyle {
+            document.update(id: id) { $0.style.counterStyle = counterStyle }
             changed()
         }
     }

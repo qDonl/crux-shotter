@@ -75,12 +75,15 @@ struct AnnotationRendererTests {
         #expect(s.color(atPixel: 2, 20) == white)
     }
 
-    @Test func counterDrawsFilledCircle() {
+    @Test func counterDrawsFineRing() {
         let d = doc(width: 100, height: 100)
         d.add(Annotation(kind: .counter(center: CGPoint(x: 50, y: 50), number: 1)))
         let s = PixelSampler(image: AnnotationRenderer.render(d))
-        // diameter 2.2*18 = 39.6; near the rim, away from the digit
-        #expect(s.color(atPixel: 34, 50) == RGBColor(r: 255, g: 59, b: 48))
+        // The rim carries the palette color; the interior remains pale instead of a solid disk.
+        let rim = s.color(atPixel: 37, 50)
+        #expect(rim != white && (rim?.g ?? 255) < 200)
+        let interior = s.color(atPixel: 42, 50)
+        #expect((interior?.g ?? 0) > 220)
         #expect(s.color(atPixel: 50, 20) == white)
     }
 

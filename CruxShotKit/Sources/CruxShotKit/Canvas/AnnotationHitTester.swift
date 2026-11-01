@@ -33,8 +33,10 @@ public enum AnnotationHitTester {
         case .pen(let pts):
             if pts.count == 1 { return hypot(p.x - pts[0].x, p.y - pts[0].y) <= reach }
             return zip(pts, pts.dropFirst()).contains { distance(from: p, toSegment: $0, $1) <= reach }
-        case .text, .counter:
+        case .text:
             return a.bounds.contains(p)
+        case .counter:
+            return a.bounds.insetBy(dx: -3, dy: -3).contains(p)
         }
     }
 

@@ -39,13 +39,15 @@ public struct AnnotationStyle: Sendable, Equatable {
     public var lineWidth: LineWidth
     public var fontSize: CGFloat
     public var arrowStyle: ArrowStyle
+    public var counterStyle: CounterStyle
 
     public init(color: PaletteColor = .red, lineWidth: LineWidth = .medium, fontSize: CGFloat = 18,
-                arrowStyle: ArrowStyle = .classic) {
+                arrowStyle: ArrowStyle = .classic, counterStyle: CounterStyle = .preciseRing) {
         self.color = color
         self.lineWidth = lineWidth
         self.fontSize = fontSize
         self.arrowStyle = arrowStyle
+        self.counterStyle = counterStyle
     }
 }
 
@@ -93,9 +95,6 @@ public struct Annotation: Identifiable, Sendable, Equatable {
     /// Layout width/height large enough that text never wraps (renderer and editor).
     static let textLayoutExtent: CGFloat = 10_000
 
-    /// Counter circle diameter as a multiple of fontSize; shared by renderer and hit testing.
-    public static let counterDiameterFactor: CGFloat = 2.2
-
     public func translated(by v: CGVector) -> Annotation {
         func p(_ pt: CGPoint) -> CGPoint { CGPoint(x: pt.x + v.dx, y: pt.y + v.dy) }
         var copy = self
@@ -124,9 +123,8 @@ public struct Annotation: Identifiable, Sendable, Equatable {
         case .text(let o, let s):
             let size = Self.textSize(s, fontSize: style.fontSize)
             return CGRect(x: o.x, y: o.y, width: max(size.width, 1), height: size.height)
-        case .counter(let c, _):
-            let radius = Self.counterDiameterFactor * style.fontSize / 2
-            return CGRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2)
+        case .counter(let c, let n):
+            return CounterGeometry(center: c, number: n, style: style.counterStyle).bounds
         }
     }
 
