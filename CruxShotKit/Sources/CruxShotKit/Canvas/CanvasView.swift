@@ -22,12 +22,13 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     var onLineWidthStep: ((Int, CGPoint) -> Void)?
     public var isEditingText: Bool { textView != nil }
     private var canAdjustLineWidth: Bool {
-        if let tool { return tool == .rect || tool == .arrow || tool == .pen }
-        guard let id = validSelectedID, let annotation = document.annotations.first(where: { $0.id == id }) else { return false }
-        switch annotation.kind {
-        case .rect, .arrow, .pen: return true
-        default: return false
+        if let id = validSelectedID, let annotation = document.annotations.first(where: { $0.id == id }) {
+            switch annotation.kind {
+            case .rect, .arrow, .pen: return true
+            default: return false
+            }
         }
+        return tool == .rect || tool == .arrow || tool == .pen
     }
     var canDoubleClickCopy: Bool { !isEditingText && !clickSequenceEndedEditing }
     public var selectedAnnotationStyle: AnnotationStyle? {
@@ -155,8 +156,9 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         tv.removeFromSuperview()
         if refocus { window?.makeFirstResponder(self) }
         guard !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        document.add(Annotation(kind: .text(origin: textOrigin, string: string), style: editStyle))
-        changed()
+        let annotation = Annotation(kind: .text(origin: textOrigin, string: string), style: editStyle)
+        document.add(annotation)
+        select(annotation.id)
     }
 
     // MARK: Drawing
@@ -208,33 +210,40 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         beginClickSequence(clickCount: event.clickCount)
         window?.makeFirstResponder(self)
         commitTextEditing()
+        if wasEditingText { return }
         let p = convert(event.locationInWindow, from: nil)
         dragStart = p
         dragOffset = .zero
-        guard let tool else {
-            if let id = validSelectedID, let sel = document.annotations.first(where: { $0.id == id }),
-               let h = AnnotationResizer.handle(at: p, for: sel) {
-                resizeHandle = h
-                resizeDraft = sel
-                return
-            }
-            let hit = AnnotationHitTester.hit(p, in: document.annotations)
-            if hit == nil, event.clickCount == 2, !wasEditingText, !clickSequenceEndedEditing, let onDoubleClick {
-                onDoubleClick()
-                return
-            }
-            lastSelectionPoint = hit == nil ? nil : p
-            select(hit)
-            isMovingSelection = false
+        if !event.modifierFlags.contains(.option),
+           let id = validSelectedID, let selected = document.annotations.first(where: { $0.id == id }),
+           let handle = AnnotationResizer.handle(at: p, for: selected) {
+            resizeHandle = handle
+            resizeDraft = selected
             return
         }
+        let hit = isSelectedAnnotation(at: p) ? selectedID : AnnotationHitTester.hit(p, in: document.annotations)
+        if let hit, !event.modifierFlags.contains(.option) {
+            lastSelectionPoint = p
+            select(hit)
+            isMovingSelection = true
+            return
+        }
+        if tool == nil, hit == nil, event.clickCount == 2, !clickSequenceEndedEditing,
+           let onDoubleClick {
+            onDoubleClick()
+            return
+        }
+        select(nil)
+        isMovingSelection = false
+        guard let tool else { return }
         switch tool {
         case .rect, .arrow, .mosaic: draft = makeDraft(tool, to: p)
         case .pen: draft = Annotation(kind: .pen([p]), style: style)
         case .text: beginTextEditing(at: p)
         case .counter:
-            document.add(Annotation(kind: .counter(center: p, number: document.nextCounterNumber), style: style))
-            changed()
+            let annotation = Annotation(kind: .counter(center: p, number: document.nextCounterNumber), style: style)
+            document.add(annotation)
+            select(annotation.id)
         }
     }
 
@@ -251,8 +260,7 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         } else if let h = resizeHandle, let base = resizeDraft {
             resizeDraft = AnnotationResizer.resized(base, handle: h, to: p)
             needsDisplay = true
-        } else if tool == nil, validSelectedID != nil {
-            isMovingSelection = true
+        } else if isMovingSelection, validSelectedID != nil {
             dragOffset = CGVector(dx: p.x - dragStart.x, dy: p.y - dragStart.y)
             needsDisplay = true
         }
@@ -261,7 +269,10 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     public override func mouseUp(with event: NSEvent) {
         if let d = draft {
             draft = nil
-            if isValid(d) { document.add(d); changed() }
+            if isValid(d) {
+                document.add(d)
+                select(d.id)
+            }
             needsDisplay = true
         } else if let draftResize = resizeDraft {
             resizeHandle = nil
@@ -402,6 +413,15 @@ public final class CanvasView: NSView, NSTextViewDelegate {
         selectedID = id
         needsDisplay = true
         onChange?()
+    }
+
+    /// A selected outline can be grabbed from its interior; unselected outlines still require
+    /// a stroke hit so empty screenshot space remains available for moving the crop.
+    func isSelectedAnnotation(at point: CGPoint) -> Bool {
+        guard let id = validSelectedID,
+              let annotation = document.annotations.first(where: { $0.id == id }) else { return false }
+        if case .rect(let rect) = annotation.kind, rect.contains(point) { return true }
+        return AnnotationHitTester.hits(annotation, point, tolerance: 6)
     }
 
     private func changed() {

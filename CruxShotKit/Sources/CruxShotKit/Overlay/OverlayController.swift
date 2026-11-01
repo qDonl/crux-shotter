@@ -124,6 +124,7 @@ public final class OverlayController {
         let point = Geometry.imagePoint(fromGlobal: global, imageOriginGlobal: frame)
         if let selected = canvas?.selectedID.flatMap({ id in document.annotations.first { $0.id == id } }),
            AnnotationResizer.handle(at: point, for: selected) != nil { return false }
+        if canvas?.isSelectedAnnotation(at: point) == true { return false }
         return AnnotationHitTester.hit(point, in: document.annotations) == nil
     }
 
@@ -246,16 +247,17 @@ public final class OverlayController {
             default: NSCursor.crosshair.set()
             }
         } else if rect.contains(g) {
-            if let document, let frame = document.captureFrame, canvas?.tool == nil {
+            if let document, let frame = document.captureFrame {
                 let point = Geometry.imagePoint(fromGlobal: g, imageOriginGlobal: frame)
                 if let id = canvas?.selectedID,
                    let selected = document.annotations.first(where: { $0.id == id }),
                    AnnotationResizer.handle(at: point, for: selected) != nil {
                     NSCursor.crosshair.set()
-                } else if AnnotationHitTester.hit(point, in: document.annotations) != nil {
+                } else if canvas?.isSelectedAnnotation(at: point) == true ||
+                            AnnotationHitTester.hit(point, in: document.annotations) != nil {
                     NSCursor.pointingHand.set()
                 } else {
-                    NSCursor.openHand.set()
+                    (canvas?.tool == nil ? NSCursor.openHand : NSCursor.crosshair).set()
                 }
             } else {
                 NSCursor.crosshair.set()

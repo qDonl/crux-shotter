@@ -6,9 +6,9 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.0.7"
-    CURRENT_PROJECT_VERSION: "7"
-    CRUXSHOT_RELEASE_VERSION: "0.0.7-alpha"
+    MARKETING_VERSION: "0.0.8"
+    CURRENT_PROJECT_VERSION: "8"
+    CRUXSHOT_RELEASE_VERSION: "0.0.8-alpha"
     CRUXSHOT_GITHUB_REPO: qDonl/crux-shotter
     # Public key only. The signing seed is stored outside this repository.
     SPARKLE_PUBLIC_KEY: "0mlsQ0f16T9HEHX0YldsHfkNUEoSCoSEPLceBLWPQts="
@@ -36,4 +36,4 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_ENTITLEMENTS: App/CruxShot.entitlements
-        MARKETING_VERSION: "0.0.7"
+        MARKETING_VERSION: "0.0.8"
