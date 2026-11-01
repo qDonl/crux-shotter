@@ -3,6 +3,30 @@ import Testing
 @testable import CruxShotKit
 
 @Suite @MainActor struct PostDrawEditingTests {
+    @Test func selectedPropertiesLeaveNextMarkDefaultsAndMosaicCanBeRestyled() {
+        let document = AnnotationDocument(image: makeImage(width: 120, height: 120) { _, _ in RGBColor(r: 255, g: 255, b: 255) }, scale: 1)
+        let canvas = CanvasView(document: document)
+        let arrow = Annotation(kind: .arrow(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 50, y: 50)))
+        let mosaic = Annotation(kind: .mosaic(CGRect(x: 60, y: 60, width: 20, height: 20), .pixelate))
+        document.add(arrow)
+        document.add(mosaic)
+        canvas.tool = .arrow
+        canvas.select(arrow.id)
+        canvas.applyArrowStyle(.dashed)
+        canvas.applyColor(.blue)
+        canvas.applyLineWidth(.thick)
+        #expect(document.annotations[0].style.arrowStyle == .dashed)
+        #expect(document.annotations[0].style.color == .blue)
+        #expect(document.annotations[0].style.lineWidth == .thick)
+        #expect(canvas.style == AnnotationStyle())
+        canvas.select(mosaic.id)
+        canvas.applyMosaicMode(.blur)
+        #expect(document.annotations[1].kind == .mosaic(CGRect(x: 60, y: 60, width: 20, height: 20), .blur))
+        #expect(canvas.mosaicMode == .pixelate)
+        document.undo()
+        #expect(document.annotations[1] == mosaic)
+    }
+
     @Test(arguments: [CanvasTool.rect, .arrow])
     func newMarkCanChangeWidthAndMoveAfterMouseUp(_ tool: CanvasTool) throws {
         _ = NSApplication.shared

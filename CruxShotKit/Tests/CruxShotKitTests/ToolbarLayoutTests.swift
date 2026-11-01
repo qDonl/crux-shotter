@@ -3,16 +3,17 @@ import Testing
 @testable import CruxShotKit
 
 @Suite struct ToolbarLayoutTests {
-    private let tools = CGSize(width: 44, height: 253)
-    private let actions = CGSize(width: 340, height: 80)
+    private let tools = CGSize(width: 430, height: 84)
+    private let actions = CGSize(width: 235, height: 44)
 
-    @Test func keepsControlsOutsideAnOrdinarySelection() {
+    @Test func keepsTwoRowRackBelowOrdinarySelectionAndOutputApart() {
         let selection = CGRect(x: 200, y: 200, width: 500, height: 320)
         let layout = ToolbarLayout(selection: selection, available: CGRect(x: 0, y: 0, width: 1000, height: 800),
                                    toolSize: tools, actionSize: actions)
-        #expect(layout.tools.maxX < selection.minX)
-        #expect(layout.actions.maxY < selection.minY)
+        #expect(layout.tools.maxY < selection.minY)
         #expect(!layout.tools.intersects(layout.actions))
+        #expect(!layout.tools.intersects(selection))
+        #expect(!layout.actions.intersects(selection))
     }
 
     @Test func screenEdgesSmallCropsAndFullScreenRemainUsable() {
@@ -26,43 +27,25 @@ import Testing
                 screen,
             ]
             for selection in selections {
-                let layout = ToolbarLayout(selection: selection, available: screen, toolSize: tools, actionSize: actions)
+                let layout = ToolbarLayout(selection: selection, available: screen,
+                                           toolSize: tools, actionSize: actions)
                 #expect(screen.contains(layout.tools))
                 #expect(screen.contains(layout.actions))
                 #expect(!layout.tools.intersects(layout.actions))
             }
         }
     }
-}
 
-@Suite struct CompactSelectionLayoutTests {
-    @Test func tinySelectionLeavesBothControlsReadableAndOutsideCrop() {
+    @Test func tinySelectionsKeepBothBarsReadable() {
         let screen = CGRect(x: 0, y: 0, width: 512, height: 384)
-        let tools = CGSize(width: 44, height: 253)
-        let actions = CGSize(width: 340, height: 80)
         for crop in [CGRect(x: 180, y: 150, width: 2, height: 2),
                      CGRect(x: 0, y: 0, width: 2, height: 2),
                      CGRect(x: 510, y: 382, width: 2, height: 2)] {
-            let layout = ToolbarLayout(selection: crop, available: screen, toolSize: tools, actionSize: actions)
+            let layout = ToolbarLayout(selection: crop, available: screen,
+                                       toolSize: tools, actionSize: actions)
             #expect(screen.contains(layout.tools) && screen.contains(layout.actions))
             #expect(!layout.tools.intersects(layout.actions))
             #expect(!layout.tools.intersects(crop) && !layout.actions.intersects(crop))
-        }
-    }
-
-    @Test func propertyBarStaysSeparateFromActionsAndTools() {
-        let screen = CGRect(x: 0, y: 0, width: 512, height: 384)
-        for crop in [CGRect(x: 180, y: 150, width: 2, height: 2),
-                     CGRect(x: 0, y: 0, width: 2, height: 2),
-                     CGRect(x: 510, y: 382, width: 2, height: 2),
-                     CGRect(x: 75, y: 40, width: 350, height: 300)] {
-            let layout = ToolbarLayout(selection: crop, available: screen,
-                                       toolSize: CGSize(width: 44, height: 253),
-                                       actionSize: CGSize(width: 235, height: 44),
-                                       propertySize: CGSize(width: 78, height: 44))
-            #expect(screen.contains(layout.properties))
-            #expect(!layout.properties.intersects(layout.tools))
-            #expect(!layout.properties.intersects(layout.actions))
         }
     }
 }

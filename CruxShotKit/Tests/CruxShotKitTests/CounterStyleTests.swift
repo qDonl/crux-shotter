@@ -58,7 +58,7 @@ import Testing
         canvas.applyCounterStyle(.openRing)
         #expect(doc.annotations[0].style.counterStyle == .openRing)
         #expect(doc.annotations[1] == second)
-        #expect(canvas.style.counterStyle == .openRing)
+        #expect(canvas.style.counterStyle == .preciseRing)
         doc.undo()
         #expect(doc.annotations == [first, second])
         canvas.applyCounterStyle(.baseline)
@@ -134,10 +134,9 @@ import Testing
         func descendants(_ view: NSView) -> [NSView] {
             view.subviews.flatMap { [$0] + descendants($0) }
         }
-        let styleButton = try #require(descendants(toolbar.propertyBar)
-            .compactMap { $0 as? ToolbarButton }
-            .first { $0.toolTip?.hasPrefix("序号样式：") == true })
+        let styleButton = try #require(toolbar.counterStyleChoices[.openRing])
         #expect(!toolbar.propertyBar.isHidden && !styleButton.isHidden)
+        #expect(descendants(toolbar.toolRack).contains { $0 === styleButton })
         #expect(toolbar.counterStyleChoices.count == 3)
         #expect(toolbar.counterStyleChoices.filter { $0.value.isActive }.map(\.key) == [.openRing])
         #expect(toolbar.counterStyleChoices.values.allSatisfy { $0.title.isEmpty && $0.toolTip != nil })
@@ -146,7 +145,8 @@ import Testing
         toolbar.counterStyleChoices[.baseline]?.performClick(nil)
         #expect(command == .baseline)
         toolbar.update(tool: nil, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
-                       canUndo: false, canRedo: false, selectedCounterStyle: .baseline, hasSelection: true)
+                       canUndo: false, canRedo: false, selectedCounterStyle: .baseline,
+                       selectedTool: .counter, hasSelection: true)
         #expect(!toolbar.propertyBar.isHidden)
         #expect(toolbar.counterStyleChoices.filter { $0.value.isActive }.map(\.key) == [.baseline])
     }

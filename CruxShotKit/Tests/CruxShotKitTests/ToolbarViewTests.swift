@@ -4,7 +4,7 @@ import Testing
 @testable import CruxShotKit
 
 @Suite @MainActor struct ToolbarViewTests {
-    @Test func toolsAndPropertiesKeepOutputBarSizeAndCanvasFocus() throws {
+    @Test func twoRowRackKeepsOutputSeparateAndCanvasFocus() throws {
         _ = NSApplication.shared
         let toolbar = ToolbarView()
         let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 700, height: 450),
@@ -28,26 +28,29 @@ import Testing
             toolbar.update(tool: tool, color: .red, lineWidth: .medium, mosaicMode: .pixelate,
                            canUndo: false, canRedo: false)
             let placement = ToolbarLayout(selection: responder.frame, available: content.bounds,
-                                          toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize,
-                                          propertySize: toolbar.propertyBar.fittingSize)
+                                          toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize)
             toolbar.frame = placement.actions
             toolbar.toolRack.frame = placement.tools
-            toolbar.propertyBar.frame = placement.properties
             content.layoutSubtreeIfNeeded()
             sizes.append(toolbar.fittingSize)
             #expect(toolbar.fittingSize.width > 200 && toolbar.fittingSize.width < 300)
-            #expect(toolbar.toolRack.fittingSize.width == 44)
+            #expect(toolbar.toolRack.fittingSize.width > 240)
+            #expect(toolbar.toolRack.fittingSize.height <= 90)
             #expect(!placement.tools.intersects(placement.actions))
-            #expect(!placement.properties.intersects(placement.actions))
         }
         #expect(Set(sizes.map { $0.width }).count == 1)
         #expect(Set(sizes.map { $0.height }).count == 1)
+        let tight = ToolbarLayout(selection: CGRect(x: 85, y: 90, width: 340, height: 240),
+                                  available: CGRect(x: 0, y: 0, width: 512, height: 384),
+                                  toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize)
+        #expect(CGRect(x: 0, y: 0, width: 512, height: 384).contains(tight.tools))
+        #expect(!tight.tools.intersects(tight.actions))
         let buttons = descendants(toolbar.toolRack).compactMap { $0 as? ToolbarButton }
         let actionButtons = descendants(toolbar).compactMap { $0 as? ToolbarButton }
         #expect(actionButtons.allSatisfy { $0.title.isEmpty })
         #expect(toolbar.colorChoices.count == PaletteColor.allCases.count)
         #expect(toolbar.colorChoices.values.allSatisfy { $0.title.isEmpty && $0.toolTip != nil })
-        #expect(toolbar.colorPopover.contentViewController?.preferredContentSize.width ?? 0 > 100)
+        #expect(toolbar.colorChoices.values.allSatisfy { $0.isDescendant(of: toolbar.toolRack) })
         let select = try #require(buttons.first { $0.toolTip == "选择 / 移动标注 (V)" })
         var selected = false
         toolbar.onCommand = { if case .select = $0 { selected = true } }
@@ -61,7 +64,6 @@ import Testing
         try snapshot(content, name: "split-editor-native")
         try snapshot(toolbar, name: "output-bar")
         try snapshot(toolbar.toolRack, name: "tool-rack")
-        try snapshot(toolbar.propertyBar, name: "property-bar")
     }
 
     @Test func settingsHaveSpaceForLongPathsAndFilenameTemplates() throws {

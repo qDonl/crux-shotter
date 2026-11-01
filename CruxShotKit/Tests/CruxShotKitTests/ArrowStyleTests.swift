@@ -129,10 +129,9 @@ import Testing
         #expect(toolbar.arrowStyleChoices.count == ArrowStyle.allCases.count)
         #expect(toolbar.arrowStyleChoices.filter { $0.value.isActive }.map(\.key) == [.dashed])
         #expect(toolbar.arrowStyleChoices.values.allSatisfy { $0.title.isEmpty && $0.toolTip != nil })
-        #expect(toolbar.arrowStylePopover.contentViewController?.preferredContentSize.width ?? 0 > 100)
-        #expect(toolbar.arrowStylePopover.contentViewController?.preferredContentSize.height ?? 0 > 100)
+        #expect(toolbar.arrowStyleChoices.values.allSatisfy { $0.isDescendant(of: toolbar.toolRack) })
         toolbar.onCommand = { if case .arrowStyle(let style) = $0 { canvas.applyArrowStyle(style) } }
-        // Dispatch the picker action in-process; no popup or external app is driven.
+        // Dispatch the inline style action in-process; no external app is driven.
         toolbar.arrowStyleChoices[.handDrawn]?.performClick(nil)
         #expect(doc.annotations[0].style.arrowStyle == .handDrawn)
         #expect(canvas.selectedID == a.id)

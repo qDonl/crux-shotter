@@ -1,56 +1,51 @@
 import CoreGraphics
 
-/// Placement shared by capture overlays (local coordinates) and pin panels (screen coordinates).
+/// Keeps the two-row tool rack near one crop corner and the output bar apart from it.
 struct ToolbarLayout {
     let tools: CGRect
     let actions: CGRect
-    let properties: CGRect
 
-    init(selection: CGRect, available: CGRect, toolSize: CGSize, actionSize: CGSize,
-         propertySize: CGSize = .zero) {
+    init(selection: CGRect, available: CGRect, toolSize: CGSize, actionSize: CGSize) {
         let gap: CGFloat = 8
         let area = available.insetBy(dx: 6, dy: 6)
-        func clamped(_ origin: CGPoint, _ size: CGSize) -> CGRect {
-            CGRect(x: max(area.minX, min(origin.x, area.maxX - size.width)),
-                   y: max(area.minY, min(origin.y, area.maxY - size.height)),
+        func clamped(_ x: CGFloat, _ y: CGFloat, _ size: CGSize) -> CGRect {
+            CGRect(x: max(area.minX, min(x, area.maxX - size.width)),
+                   y: max(area.minY, min(y, area.maxY - size.height)),
                    width: size.width, height: size.height)
         }
         func overlap(_ a: CGRect, _ b: CGRect) -> CGFloat {
-            let r = a.intersection(b)
-            return r.isNull ? 0 : r.width * r.height
+            let intersection = a.intersection(b)
+            return intersection.isNull ? 0 : intersection.width * intersection.height
         }
-        let toolXs = [selection.minX - gap - toolSize.width, selection.maxX + gap,
-                      area.minX, area.maxX - toolSize.width]
-        let toolYs = [selection.maxY - toolSize.height, selection.minY,
-                      area.maxY - toolSize.height, area.minY]
-        let actionXs = [selection.maxX - actionSize.width, selection.minX,
-                        area.maxX - actionSize.width, area.minX]
+        let toolXs = [selection.minX, area.minX, selection.maxX - toolSize.width,
+                      area.maxX - toolSize.width]
+        let toolYs = [selection.minY - gap - toolSize.height, selection.maxY + gap,
+                      area.minY, area.maxY - toolSize.height]
+        let actionXs = [selection.maxX - actionSize.width, selection.maxX + gap,
+                        area.maxX - actionSize.width, selection.minX, area.minX]
         let actionYs = [selection.minY - gap - actionSize.height, selection.maxY + gap,
                         area.minY, area.maxY - actionSize.height]
         var best: (CGRect, CGRect, (CGFloat, CGFloat, CGFloat))?
         for x in toolXs {
             for y in toolYs {
-                let tools = clamped(CGPoint(x: x, y: y), toolSize)
+                let rack = clamped(x, y, toolSize)
                 for ax in actionXs {
                     for ay in actionYs {
-                        let actions = clamped(CGPoint(x: ax, y: ay), actionSize)
-                        // Keep the two controls apart first, then preserve as much image as possible.
-                        let collision = overlap(tools.insetBy(dx: -gap / 2, dy: -gap / 2), actions)
-                        let covered = overlap(tools, selection) + overlap(actions, selection)
-                        let distance = abs(tools.maxX + gap - selection.minX)
-                            + abs(tools.maxY - selection.maxY)
-                            + abs(actions.maxX - selection.maxX)
-                            + abs(actions.maxY + gap - selection.minY)
-                        // On tiny crops, keep both bars readable and leave the crop visible.
-                        // Full-screen crops cannot avoid coverage, so minimize it afterwards.
+                        let output = clamped(ax, ay, actionSize)
+                        let collision = overlap(rack.insetBy(dx: -gap / 2, dy: -gap / 2), output)
+                        let covered = overlap(rack, selection) + overlap(output, selection)
+                        let distance = abs(rack.minX - selection.minX)
+                            + abs(rack.maxY + gap - selection.minY)
+                            + abs(output.maxX - selection.maxX)
+                            + abs(output.maxY + gap - selection.minY)
                         let score = (collision, covered, distance)
                         if let previous = best?.2 {
                             if score.0 < previous.0 || (score.0 == previous.0 &&
                                 (score.1 < previous.1 || (score.1 == previous.1 && score.2 < previous.2))) {
-                                best = (tools, actions, score)
+                                best = (rack, output, score)
                             }
                         } else {
-                            best = (tools, actions, score)
+                            best = (rack, output, score)
                         }
                     }
                 }
@@ -58,31 +53,5 @@ struct ToolbarLayout {
         }
         tools = best!.0
         actions = best!.1
-        if propertySize == .zero {
-            properties = .zero
-        } else {
-            let propertyXs = [selection.maxX - propertySize.width, selection.minX,
-                              area.maxX - propertySize.width, area.minX]
-            let propertyYs = [selection.maxY + gap, selection.minY - gap - propertySize.height,
-                              area.maxY - propertySize.height, area.minY]
-            var placement: (CGRect, (CGFloat, CGFloat, CGFloat))?
-            for x in propertyXs {
-                for y in propertyYs {
-                    let frame = clamped(CGPoint(x: x, y: y), propertySize)
-                    let collision = overlap(frame.insetBy(dx: -gap / 2, dy: -gap / 2), tools)
-                        + overlap(frame.insetBy(dx: -gap / 2, dy: -gap / 2), actions)
-                    let covered = overlap(frame, selection)
-                    let distance = abs(frame.maxX - selection.maxX) + abs(frame.minY - gap - selection.maxY)
-                    let score = (collision, covered, distance)
-                    if let old = placement?.1 {
-                        if score.0 < old.0 || (score.0 == old.0 &&
-                            (score.1 < old.1 || (score.1 == old.1 && score.2 < old.2))) {
-                            placement = (frame, score)
-                        }
-                    } else { placement = (frame, score) }
-                }
-            }
-            properties = placement!.0
-        }
     }
 }

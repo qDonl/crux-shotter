@@ -5,7 +5,7 @@ import AppKit
 enum PinEditExit { case keep, discard, copy, save, ocr }
 
 /// In-place annotation editing on a pin: a `CanvasView` over the pin view plus the capture
-/// split tool rack and output bar in child panels beside and below the pin window.
+/// two-row tool rack and output bar in child panels beside the pin window.
 @MainActor
 final class PinEditor {
     let document: AnnotationDocument
@@ -13,7 +13,6 @@ final class PinEditor {
     private let toolbar = ToolbarView(variant: .pinEdit)
     private let toolbarPanel: NSPanel
     private let toolPanel: NSPanel
-    private let propertyPanel: NSPanel
     private weak var host: PinView?
     private let preferences: Preferences
     var onExit: ((PinEditExit) -> Void)?
@@ -25,7 +24,6 @@ final class PinEditor {
         canvas = CanvasView(document: document)
         toolbarPanel = Self.panel(content: toolbar)
         toolPanel = Self.panel(content: toolbar.toolRack)
-        propertyPanel = Self.panel(content: toolbar.propertyBar)
 
         canvas.style = currentStyle
         canvas.mosaicMode = preferences.mosaicMode
@@ -35,7 +33,7 @@ final class PinEditor {
             guard let self else { return }
             let current = self.canvas.selectedAnnotationStyle?.lineWidth ?? self.canvas.style.lineWidth
             let next = current.stepped(by: delta)
-            self.preferences.lastLineWidth = next
+            if self.canvas.selectedID == nil { self.preferences.lastLineWidth = next }
             self.canvas.applyLineWidth(next)
             self.canvas.showLineWidth(next, near: point)
             self.updateToolbar()
@@ -45,7 +43,6 @@ final class PinEditor {
         if let window = host.window {
             window.addChildWindow(toolbarPanel, ordered: .above)
             window.addChildWindow(toolPanel, ordered: .above)
-            window.addChildWindow(propertyPanel, ordered: .above)
             window.makeKey()
             window.makeFirstResponder(canvas)
         }
@@ -62,13 +59,9 @@ final class PinEditor {
         guard let parent = host.window else { return }
         let available = (parent.screen ?? NSScreen.main)?.visibleFrame ?? parent.frame
         let placement = ToolbarLayout(selection: parent.frame, available: available,
-                                      toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize,
-                                      propertySize: toolbar.propertyBar.fittingSize)
+                                      toolSize: toolbar.toolRack.fittingSize, actionSize: toolbar.fittingSize)
         toolbarPanel.setFrame(placement.actions, display: true)
         toolPanel.setFrame(placement.tools, display: true)
-        propertyPanel.setFrame(placement.properties, display: true)
-        propertyPanel.orderOut(nil)
-        if !toolbar.propertyBar.isHidden { propertyPanel.orderFront(nil) }
     }
 
     /// Commits pending text and removes the editing UI. Returns the final annotations.
@@ -76,7 +69,7 @@ final class PinEditor {
         canvas.commitTextEditing()
         let result = document.annotations
         canvas.removeFromSuperview()
-        for panel in [toolbarPanel, toolPanel, propertyPanel] {
+        for panel in [toolbarPanel, toolPanel] {
             panel.parent?.removeChildWindow(panel)
             panel.orderOut(nil)
         }
@@ -103,7 +96,7 @@ final class PinEditor {
         case .undo: document.undo(); updateToolbar()
         case .redo: document.redo(); updateToolbar()
         case .toggleTool(let tool):
-            canvas.tool = canvas.tool == tool ? nil : tool
+            canvas.tool = tool
             updateToolbar()
         }
         return true
@@ -136,22 +129,22 @@ final class PinEditor {
         case .action(.ocr): onExit?(.ocr); return
         case .action: break
         case .select: canvas.tool = nil
-        case .toggleTool(let tool): canvas.tool = canvas.tool == tool ? nil : tool
+        case .toggleTool(let tool): canvas.tool = tool
         case .color(let color):
-            preferences.lastColor = color
+            if canvas.selectedID == nil { preferences.lastColor = color }
             canvas.applyColor(color)
         case .lineWidth(let width):
-            preferences.lastLineWidth = width
+            if canvas.selectedID == nil { preferences.lastLineWidth = width }
             canvas.applyLineWidth(width)
         case .arrowStyle(let style):
-            preferences.lastArrowStyle = style
+            if canvas.selectedID == nil { preferences.lastArrowStyle = style }
             canvas.applyArrowStyle(style)
         case .counterStyle(let style):
-            preferences.lastCounterStyle = style
+            if canvas.selectedID == nil { preferences.lastCounterStyle = style }
             canvas.applyCounterStyle(style)
         case .mosaicMode(let mode):
-            preferences.mosaicMode = mode
-            canvas.mosaicMode = mode
+            if canvas.selectedTool != .mosaic { preferences.mosaicMode = mode }
+            canvas.applyMosaicMode(mode)
         case .discard:
             onExit?(.discard)
             return
@@ -166,9 +159,11 @@ final class PinEditor {
         let selectedStyle = canvas.selectedAnnotationStyle
         toolbar.update(tool: canvas.tool, color: selectedStyle?.color ?? preferences.lastColor,
                        lineWidth: selectedStyle?.lineWidth ?? preferences.lastLineWidth,
-                       mosaicMode: preferences.mosaicMode, canUndo: document.canUndo, canRedo: document.canRedo,
+                       mosaicMode: canvas.selectedMosaicMode ?? preferences.mosaicMode,
+                       canUndo: document.canUndo, canRedo: document.canRedo,
                        arrowStyle: preferences.lastArrowStyle, selectedArrowStyle: canvas.selectedArrowStyle,
                        counterStyle: preferences.lastCounterStyle, selectedCounterStyle: canvas.selectedCounterStyle,
+                       selectedTool: canvas.selectedTool,
                        hasSelection: canvas.selectedID != nil)
         layout()
         canvas.needsDisplay = true

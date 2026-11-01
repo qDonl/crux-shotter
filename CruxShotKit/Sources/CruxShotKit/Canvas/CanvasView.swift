@@ -45,6 +45,23 @@ public final class CanvasView: NSView, NSTextViewDelegate {
               case .counter = a.kind else { return nil }
         return a.style.counterStyle
     }
+    public var selectedTool: CanvasTool? {
+        guard let id = validSelectedID, let annotation = document.annotations.first(where: { $0.id == id }) else { return nil }
+        switch annotation.kind {
+        case .rect: return .rect
+        case .arrow: return .arrow
+        case .pen: return .pen
+        case .text: return .text
+        case .counter: return .counter
+        case .mosaic: return .mosaic
+        }
+    }
+    public var selectedMosaicMode: MosaicMode? {
+        guard let id = validSelectedID,
+              let annotation = document.annotations.first(where: { $0.id == id }),
+              case .mosaic(_, let mode) = annotation.kind else { return nil }
+        return mode
+    }
 
     private(set) var selectedID: Annotation.ID?
     private var draft: Annotation?
@@ -95,15 +112,16 @@ public final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     public func applyColor(_ color: PaletteColor) {
-        style.color = color
         if let id = validSelectedID, selectedAnnotationStyle?.color != color {
             document.update(id: id) { $0.style.color = color }
             changed()
+        } else if validSelectedID == nil {
+            style.color = color
         }
     }
 
     public func applyLineWidth(_ width: LineWidth) {
-        style.lineWidth = width
+        if validSelectedID == nil { style.lineWidth = width }
         // A shape being dragged owns a snapshot of the style from mouse-down. Update that
         // snapshot too, so both the live preview and mouse-up commit use the new width.
         if draft != nil {
@@ -137,20 +155,34 @@ public final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Arrow variants are changed explicitly so changing color/width never resets a selected arrow.
     public func applyArrowStyle(_ arrowStyle: ArrowStyle) {
-        style.arrowStyle = arrowStyle
         if let id = validSelectedID, selectedArrowStyle != nil,
            document.annotations.first(where: { $0.id == id })?.style.arrowStyle != arrowStyle {
             document.update(id: id) { $0.style.arrowStyle = arrowStyle }
             changed()
+        } else if selectedArrowStyle == nil {
+            style.arrowStyle = arrowStyle
         }
     }
 
     public func applyCounterStyle(_ counterStyle: CounterStyle) {
-        style.counterStyle = counterStyle
         if let id = validSelectedID, selectedCounterStyle != nil,
            document.annotations.first(where: { $0.id == id })?.style.counterStyle != counterStyle {
             document.update(id: id) { $0.style.counterStyle = counterStyle }
             changed()
+        } else if selectedCounterStyle == nil {
+            style.counterStyle = counterStyle
+        }
+    }
+
+    public func applyMosaicMode(_ mode: MosaicMode) {
+        if let id = validSelectedID,
+           let selected = document.annotations.first(where: { $0.id == id }),
+           case .mosaic(let rect, let current) = selected.kind {
+            guard current != mode else { return }
+            document.update(id: id) { $0.kind = .mosaic(rect, mode) }
+            changed()
+        } else {
+            mosaicMode = mode
         }
     }
 

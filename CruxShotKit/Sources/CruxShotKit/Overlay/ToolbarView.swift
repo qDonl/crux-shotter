@@ -12,41 +12,39 @@ enum ToolbarCommand {
     case done, discard
 }
 
-/// Separate drawing rack and output bar, shared by capture and pin editing.
+/// A two-row drawing rack and a separate output bar, shared by capture and pin editing.
 @MainActor
 final class ToolbarView: ToolbarSurface {
     static let buttonSide: CGFloat = 32
     enum Variant { case overlay, pinEdit }
 
     let toolRack = ToolbarSurface()
-    let propertyBar = ToolbarSurface()
+    let propertyBar = NSStackView()
     var onCommand: ((ToolbarCommand) -> Void)?
     private var toolButtons: [CanvasTool: ToolbarButton] = [:]
     private var mosaicButtons: [MosaicMode: ToolbarButton] = [:]
     private var selectButton: ToolbarButton!
-    private var arrowStyleButton: ToolbarButton!
-    private var counterStyleButton: ToolbarButton!
-    private var swatchButton: ToolbarButton!
-    let arrowStylePopover = NSPopover()
-    let counterStylePopover = NSPopover()
-    let colorPopover = NSPopover()
     private(set) var arrowStyleChoices: [ArrowStyle: ToolbarButton] = [:]
     private(set) var counterStyleChoices: [CounterStyle: ToolbarButton] = [:]
     private(set) var colorChoices: [PaletteColor: ToolbarButton] = [:]
     private var undoButton: ToolbarButton!
     private var redoButton: ToolbarButton!
-    private let styles = NSStackView()
-    private let mosaic = NSStackView()
+    private let arrowOptions = NSStackView()
+    private let counterOptions = NSStackView()
+    private let colorOptions = NSStackView()
+    private let mosaicOptions = NSStackView()
+    private let scopeIndicator = NSImageView()
+    private let propertyDivider = ToolbarView.separator(horizontal: true)
 
     init(variant: Variant = .overlay) {
         super.init(frame: .zero)
-        setAccessibilityLabel("输出与样式")
-        toolRack.setAccessibilityLabel("绘图工具")
+        setAccessibilityLabel("输出操作")
+        toolRack.setAccessibilityLabel("绘图工具与属性")
         propertyBar.setAccessibilityLabel("当前工具属性")
         selectButton = ToolbarButton(symbol: "cursorarrow", tooltip: "选择 / 移动标注 (V)") { [weak self] in
             self?.onCommand?(.select)
         }
-        var tools: [NSView] = [selectButton, Self.separator(horizontal: true)]
+        var tools: [NSView] = [selectButton, Self.separator()]
         for (tool, symbol, title) in [
             (CanvasTool.rect, "square", "矩形 (R)"), (.arrow, "arrow.up.right", "箭头 (A)"),
             (.pen, "pencil.tip", "画笔 (P)"), (.text, "textformat", "文字 (T)"),
@@ -56,7 +54,10 @@ final class ToolbarView: ToolbarSurface {
             toolButtons[tool] = b
             tools.append(b)
         }
-        Self.install(NSStackView(views: tools), in: toolRack, orientation: .vertical)
+        let toolRow = NSStackView(views: tools)
+        toolRow.orientation = .horizontal
+        toolRow.alignment = .centerY
+        toolRow.spacing = 3
 
         undoButton = button("arrow.uturn.backward", "撤销 (⌘Z)", .undo)
         redoButton = button("arrow.uturn.forward", "重做 (⇧⌘Z)", .redo)
@@ -77,67 +78,67 @@ final class ToolbarView: ToolbarSurface {
                 self?.onCommand?(.done)
             })
         }
-        arrowStyleButton = ToolbarButton(image: Self.arrowPreview(.classic), tooltip: "箭头样式：经典实心") { [weak self] in
-            guard let self else { return }
-            arrowStylePopover.show(relativeTo: arrowStyleButton.bounds, of: arrowStyleButton, preferredEdge: .maxY)
-        }
         for style in ArrowStyle.allCases {
-            let choice = ToolbarButton(image: Self.arrowPreview(style), tooltip: style.title, width: 54) { [weak self] in
-                self?.arrowStylePopover.performClose(nil)
+            let choice = ToolbarButton(image: Self.arrowPreview(style), tooltip: style.title, width: 38) { [weak self] in
                 self?.onCommand?(.arrowStyle(style))
             }
             arrowStyleChoices[style] = choice
-        }
-        arrowStylePopover.behavior = .transient
-        arrowStylePopover.animates = false
-        arrowStylePopover.contentViewController = Self.picker(ArrowStyle.allCases.compactMap { arrowStyleChoices[$0] }, columns: 2)
-        counterStyleButton = ToolbarButton(image: Self.counterPreview(.preciseRing), tooltip: "序号样式：精密圆环") { [weak self] in
-            guard let self else { return }
-            counterStylePopover.show(relativeTo: counterStyleButton.bounds, of: counterStyleButton, preferredEdge: .maxY)
+            arrowOptions.addArrangedSubview(choice)
         }
         for style in CounterStyle.allCases {
             let choice = ToolbarButton(image: Self.counterPreview(style), tooltip: style.title, width: 44) { [weak self] in
-                self?.counterStylePopover.performClose(nil)
                 self?.onCommand?(.counterStyle(style))
             }
             counterStyleChoices[style] = choice
-        }
-        counterStylePopover.behavior = .transient
-        counterStylePopover.animates = false
-        counterStylePopover.contentViewController = Self.picker(CounterStyle.allCases.compactMap { counterStyleChoices[$0] }, columns: 3)
-        swatchButton = ToolbarButton(image: Self.swatch(.red), tooltip: "颜色：红色") { [weak self] in
-            guard let self else { return }
-            colorPopover.show(relativeTo: swatchButton.bounds, of: swatchButton, preferredEdge: .maxY)
+            counterOptions.addArrangedSubview(choice)
         }
         for color in PaletteColor.allCases {
-            let choice = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color)) { [weak self] in
-                self?.colorPopover.performClose(nil)
+            let choice = ToolbarButton(image: Self.swatch(color), tooltip: Self.colorName(color), width: 22) { [weak self] in
                 self?.onCommand?(.color(color))
             }
             colorChoices[color] = choice
+            colorOptions.addArrangedSubview(choice)
         }
-        colorPopover.behavior = .transient
-        colorPopover.animates = false
-        colorPopover.contentViewController = Self.picker(PaletteColor.allCases.compactMap { colorChoices[$0] }, columns: 3)
-        styles.addArrangedSubview(swatchButton)
-        styles.addArrangedSubview(arrowStyleButton)
-        styles.addArrangedSubview(counterStyleButton)
         for (mode, symbol, title) in [(MosaicMode.pixelate, "square.grid.3x3.fill", "像素化"),
                                       (.blur, "circle.dotted", "模糊")] {
             let b = ToolbarButton(symbol: symbol, tooltip: title) { [weak self] in self?.onCommand?(.mosaicMode(mode)) }
             mosaicButtons[mode] = b
-            mosaic.addArrangedSubview(b)
+            mosaicOptions.addArrangedSubview(b)
         }
-        for row in [styles, mosaic] { row.orientation = .horizontal; row.spacing = 2 }
-        let properties = NSStackView(views: [styles, mosaic])
-        properties.orientation = .horizontal
-        properties.alignment = .centerY
-        Self.install(properties, in: propertyBar, orientation: .horizontal)
+        for row in [arrowOptions, counterOptions, colorOptions, mosaicOptions] {
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 2
+        }
+        propertyBar.orientation = .horizontal
+        propertyBar.alignment = .centerY
+        propertyBar.spacing = 6
+        scopeIndicator.imageScaling = .scaleProportionallyDown
+        scopeIndicator.contentTintColor = .secondaryLabelColor
+        scopeIndicator.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            scopeIndicator.widthAnchor.constraint(equalToConstant: 16),
+            scopeIndicator.heightAnchor.constraint(equalToConstant: 16),
+        ])
+        propertyBar.addArrangedSubview(scopeIndicator)
+        propertyBar.addArrangedSubview(arrowOptions)
+        propertyBar.addArrangedSubview(counterOptions)
+        propertyBar.addArrangedSubview(colorOptions)
+        propertyBar.addArrangedSubview(mosaicOptions)
+        let rackRows = NSStackView(views: [toolRow, propertyDivider, propertyBar])
+        rackRows.orientation = .vertical
+        rackRows.alignment = .centerX
+        rackRows.spacing = 3
+        Self.install(rackRows, in: toolRack, orientation: .vertical)
         let actionRow = NSStackView(views: actions)
         actionRow.orientation = .horizontal
         actionRow.spacing = 2
         Self.install(actionRow, in: self, orientation: .horizontal)
-        mosaic.isHidden = true
+        arrowOptions.isHidden = true
+        counterOptions.isHidden = true
+        mosaicOptions.isHidden = true
+        propertyBar.isHidden = true
+        propertyDivider.isHidden = true
     }
 
     @available(*, unavailable)
@@ -146,53 +147,34 @@ final class ToolbarView: ToolbarSurface {
     func update(tool: CanvasTool?, color: PaletteColor, lineWidth: LineWidth, mosaicMode: MosaicMode,
                 canUndo: Bool, canRedo: Bool, arrowStyle: ArrowStyle = .classic,
                 selectedArrowStyle: ArrowStyle? = nil, counterStyle: CounterStyle = .preciseRing,
-                selectedCounterStyle: CounterStyle? = nil, hasSelection: Bool = false) {
+                selectedCounterStyle: CounterStyle? = nil, selectedTool: CanvasTool? = nil,
+                hasSelection: Bool = false) {
         selectButton.isActive = tool == nil
         for (t, b) in toolButtons { b.isActive = t == tool }
-        swatchButton.image = Self.swatch(color)
-        swatchButton.toolTip = "颜色：\(Self.colorName(color))；线宽 \(Int(lineWidth.rawValue))pt（1/2 调整）"
-        swatchButton.setAccessibilityLabel(swatchButton.toolTip)
         for (choice, button) in colorChoices { button.isActive = choice == color }
         for (m, b) in mosaicButtons { b.isActive = m == mosaicMode }
         undoButton.isEnabled = canUndo
         redoButton.isEnabled = canRedo
-        let displaysArrow = selectedArrowStyle != nil || (selectedCounterStyle == nil && tool == .arrow)
+        let effectiveTool = hasSelection ? selectedTool : tool
+        let displaysArrow = effectiveTool == .arrow || selectedArrowStyle != nil
         let currentArrow = selectedArrowStyle ?? arrowStyle
-        arrowStyleButton.isHidden = !displaysArrow
-        arrowStyleButton.image = Self.arrowPreview(currentArrow)
-        arrowStyleButton.toolTip = "箭头样式：\(currentArrow.title)"
-        arrowStyleButton.setAccessibilityLabel(arrowStyleButton.toolTip)
         for (choice, button) in arrowStyleChoices { button.isActive = choice == currentArrow }
-        let displaysCounter = selectedCounterStyle != nil || (selectedArrowStyle == nil && tool == .counter)
+        let displaysCounter = effectiveTool == .counter || selectedCounterStyle != nil
         let currentCounter = selectedCounterStyle ?? counterStyle
-        counterStyleButton.isHidden = !displaysCounter
-        counterStyleButton.image = Self.counterPreview(currentCounter)
-        counterStyleButton.toolTip = "序号样式：\(currentCounter.title)"
-        counterStyleButton.setAccessibilityLabel(counterStyleButton.toolTip)
         for (choice, button) in counterStyleChoices { button.isActive = choice == currentCounter }
-        let displaysMosaic = tool == .mosaic && !displaysArrow && !displaysCounter
-        styles.isHidden = displaysMosaic
-        mosaic.isHidden = !displaysMosaic
+        let displaysMosaic = effectiveTool == .mosaic
+        arrowOptions.isHidden = !displaysArrow
+        counterOptions.isHidden = !displaysCounter
+        colorOptions.isHidden = displaysMosaic
+        mosaicOptions.isHidden = !displaysMosaic
         propertyBar.isHidden = tool == nil && !hasSelection
+        propertyDivider.isHidden = propertyBar.isHidden
+        let scope = hasSelection ? "所选标注" : "新建标注"
+        scopeIndicator.image = NSImage(systemSymbolName: hasSelection ? "cursorarrow" : "plus", accessibilityDescription: scope)
+        scopeIndicator.toolTip = scope
+        scopeIndicator.setAccessibilityLabel(scope)
+        propertyBar.setAccessibilityLabel("\(scope)属性；线宽 \(Int(lineWidth.rawValue))pt，可按 1/2 调整")
         layoutSubtreeIfNeeded()
-    }
-
-    private static func picker(_ buttons: [ToolbarButton], columns: Int) -> NSViewController {
-        let rows = stride(from: 0, to: buttons.count, by: columns).map { offset in
-            let row = NSStackView(views: Array(buttons[offset..<min(offset + columns, buttons.count)]))
-            row.orientation = .horizontal
-            row.spacing = 4
-            return row
-        }
-        let stack = NSStackView(views: rows)
-        stack.orientation = .vertical
-        stack.spacing = 4
-        let surface = ToolbarSurface()
-        install(stack, in: surface, orientation: .vertical)
-        let controller = NSViewController()
-        controller.view = surface
-        controller.preferredContentSize = surface.fittingSize
-        return controller
     }
 
     private static func arrowPreview(_ style: ArrowStyle) -> NSImage {
@@ -241,7 +223,7 @@ final class ToolbarView: ToolbarSurface {
         view.boxType = .separator
         view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            view.widthAnchor.constraint(equalToConstant: horizontal ? 20 : 1),
+            view.widthAnchor.constraint(equalToConstant: horizontal ? 236 : 1),
             view.heightAnchor.constraint(equalToConstant: horizontal ? 1 : 18),
         ])
         return view
