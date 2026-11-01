@@ -3,6 +3,16 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 --><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <item>
+      <title>CruxShotter 0.0.10-alpha</title>
+      <sparkle:version>10</sparkle:version>
+      <sparkle:shortVersionString>0.0.10-alpha</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>preview</sparkle:channel>
+      <link>https://github.com/qDonl/crux-shotter/releases/tag/v0.0.10-alpha</link>
+      <pubDate>Sun, 01 Nov 2026 11:27:39 +0000</pubDate>
+      <enclosure url="https://github.com/qDonl/crux-shotter/releases/download/v0.0.10-alpha/CruxShotter-0.0.10-alpha.dmg" sparkle:edSignature="+qWIjwlZHQEA/gC0K5UarXNaLw/mvZSSi6vI9LqipvZBg/JDnLduk9cGUwr5mMYUQKTpLNM330KK7AWeBWDHDg==" length="2288638" type="application/octet-stream"></enclosure>
+    </item>
+    <item>
       <title>CruxShotter 0.0.9-alpha</title>
       <sparkle:version>9</sparkle:version>
       <sparkle:shortVersionString>0.0.9-alpha</sparkle:shortVersionString>
@@ -48,6 +58,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <language>zh-cn</language>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: ASOrZXhc4hRo99FpdLGPIVKk2PiZqjH176yPLz+B3wpC3rXx2PMf0eY2oLmJkQt+mrC2xHg4wh1nDRIZ9oJ8DA==
-length: 3562
+edSignature: lBAbsgQLso/r4+Ilajiw4P6gcOwoeYPGDxXG7mW4b6lDnTgOR9gAv/EX0chY5IChh0NN5BfRJOh5FRGOJlYiBg==
+length: 4308
 -->
